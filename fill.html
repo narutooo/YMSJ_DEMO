@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>填空题 Demo</title>
+    <style>
+      /* --- 1. 全局与容器设置 --- */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "Microsoft YaHei", sans-serif;
+      }
+
+      #game-container {
+        width: 1280px;
+        height: 720px;
+        position: relative;
+        background-color: #87ceeb;
+        background-image: url("assets/fill/bj.png");
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+      }
+
+      /* --- 2. 文本框区域 --- */
+      .text-panel {
+        position: absolute;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 950px;
+        background-color: rgba(255, 255, 255, 0.85); /* 半透明白底 */
+        border-radius: 20px;
+        padding: 40px;
+        box-sizing: border-box;
+        font-size: 32px;
+        color: #333;
+        font-weight: bold;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        backdrop-filter: blur(5px); /* 毛玻璃效果 */
+        line-height: 1.5;
+      }
+
+      .blank-space {
+        display: inline-block;
+        min-width: 180px;
+        height: 50px;
+        border-bottom: 3px solid #ffa500;
+        background-color: #fff8dc; /* 偏黄 */
+        border-radius: 8px;
+        margin: 0 10px;
+        padding: 0 10px;
+        vertical-align: middle;
+        text-align: center;
+        line-height: 50px;
+        color: #d35400;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+      }
+
+      .blank-space:empty::before {
+        content: "";
+      }
+
+      /* --- 3. 选项区域 (底部 25%) --- */
+      .options-area {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 35%; /* 稍微给多一点空间 */
+        display: flex;
+        justify-content: space-around; /* 分开排布 */
+        align-items: center;
+        padding: 0 100px;
+        box-sizing: border-box;
+      }
+
+      .option-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: pointer;
+        transition: transform 0.3s, filter 0.3s;
+        position: relative;
+      }
+
+      .option-item img {
+        height: 180px; /* 控制图片大小 */
+        width: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.3));
+      }
+
+      .option-item:hover {
+        transform: scale(1.1) translateY(-10px);
+      }
+
+      .option-item:active {
+        transform: scale(0.95);
+        cursor: grabbing;
+      }
+
+      .option-item {
+        cursor: grab;
+      }
+
+      /* 简单的提示文字(可选) */
+      .option-label {
+        margin-top: 10px;
+        font-size: 20px;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .option-item:hover .option-label {
+        opacity: 1;
+      }
+
+      /* --- 4. 按钮 --- */
+      .reset-btn {
+        position: absolute;
+        bottom: 30px;
+        right: 40px;
+        width: 100px;
+        height: 40px;
+        background-image: url("assets/reset.png"); /* 复用 reset 图片 */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: transparent;
+        border: none;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.2s, transform 0.2s;
+        z-index: 50;
+      }
+
+      .reset-btn:hover {
+        opacity: 1;
+        transform: scale(1.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <!-- 文本面板 -->
+      <div class="text-panel">
+        <span>走进一瞧，这里有</span>
+        <div
+          class="blank-space"
+          id="target-blank"
+          ondragover="handleDragOver(event)"
+          ondrop="handleDrop(event)"
+        ></div>
+        <span>，正在游来游去地嬉戏。</span>
+      </div>
+
+      <!-- 选项区域 -->
+      <div class="options-area">
+        <!-- 动态生成或写死 -->
+        <div
+          class="option-item"
+          draggable="true"
+          ondragstart="handleDragStart(event, '三只老鼠')"
+          onclick="fillText('三只老鼠')"
+        >
+          <img src="assets/fill/LaoShu.png" alt="老鼠" draggable="false" />
+          <div class="option-label">三只老鼠</div>
+        </div>
+        <div
+          class="option-item"
+          draggable="true"
+          ondragstart="handleDragStart(event, '四只金鱼')"
+          onclick="fillText('四只金鱼')"
+        >
+          <img src="assets/fill/jinYu.png" alt="金鱼" draggable="false" />
+          <div class="option-label">四只金鱼</div>
+        </div>
+        <div
+          class="option-item"
+          draggable="true"
+          ondragstart="handleDragStart(event, '三只青蛙')"
+          onclick="fillText('三只青蛙')"
+        >
+          <img src="assets/fill/qingWa.png" alt="青蛙" draggable="false" />
+          <div class="option-label">三只青蛙</div>
+        </div>
+      </div>
+
+      <button
+        class="reset-btn"
+        onclick="resetGame()"
+        aria-label="重置"
+      ></button>
+    </div>
+
+    <script>
+      const blankEl = document.getElementById("target-blank");
+
+      function fillText(text) {
+        blankEl.innerText = text;
+        // 添加一点动画反馈
+        blankEl.style.transform = "scale(1.1)";
+        blankEl.style.backgroundColor = "#fae588";
+        setTimeout(() => {
+          blankEl.style.transform = "scale(1)";
+          blankEl.style.backgroundColor = "#fff8dc";
+        }, 200);
+      }
+
+      function resetGame() {
+        blankEl.innerText = "";
+        blankEl.style.backgroundColor = "#fff8dc";
+      }
+
+      // 拖拽相关
+      function handleDragStart(e, text) {
+        e.dataTransfer.setData("text/plain", text);
+        e.dataTransfer.effectAllowed = "copy";
+      }
+
+      function handleDragOver(e) {
+        e.preventDefault(); // 允许放置
+        e.dataTransfer.dropEffect = "copy";
+        blankEl.style.backgroundColor = "#ffeebb"; // 拖拽悬停时的高亮反馈
+      }
+
+      function handleDrop(e) {
+        e.preventDefault();
+        const text = e.dataTransfer.getData("text/plain");
+        if (text) {
+          fillText(text);
+        } else {
+          // 如果没拿到数据，恢复样式
+          blankEl.style.backgroundColor = "#fff8dc";
+        }
+      }
+
+      // 拖拽离开时恢复样式
+      blankEl.addEventListener("dragleave", () => {
+        blankEl.style.backgroundColor = "#fff8dc";
+      });
+    </script>
+  </body>
+</html>

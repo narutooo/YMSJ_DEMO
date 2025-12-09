@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>垃圾分类 Demo</title>
+    <style>
+      /* --- 1. 全局与容器设置 --- */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "Microsoft YaHei", sans-serif;
+      }
+
+      #game-container {
+        width: 1280px;
+        height: 720px;
+        position: relative;
+        background-color: #87ceeb;
+        background-image: url("assets/fenlei/bj.jpeg");
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+      }
+
+      /* --- 2. 目标区域 (垃圾桶容器) --- */
+      .bins-area {
+        position: absolute;
+        top: 10%;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 50px; /* 两个桶之间的间距 */
+        z-index: 10;
+      }
+
+      .target-bin {
+        width: 250px;
+        height: 300px;
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+        transition: transform 0.2s;
+      }
+
+      /* 可回收桶 */
+      #bin-recyclable {
+        background-image: url("assets/fenlei/kehuishou.png");
+      }
+
+      /* 厨余桶 (使用 chuyu.png 作为桶的素材，根据需求) */
+      #bin-kitchen {
+        background-image: url("assets/fenlei/chuyu.png");
+      }
+
+      .target-bin.drag-over {
+        transform: scale(1.1);
+        filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.8));
+      }
+
+      /* --- 3. 垃圾项区域 --- */
+      /* 分布在底部 */
+      .items-area {
+        position: absolute;
+        bottom: 50px;
+        left: 0;
+        width: 100%;
+        height: 250px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 40px;
+        z-index: 20;
+      }
+
+      .garbage-item {
+        width: 140px;
+        height: 140px;
+        cursor: grab;
+        transition: transform 0.2s, opacity 0.3s;
+        filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.3));
+        position: relative;
+      }
+
+      .garbage-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        pointer-events: none; /* 图片本身不响应事件，由父容器响应 */
+      }
+
+      .garbage-item:active {
+        cursor: grabbing;
+        transform: scale(1.1);
+      }
+
+      /* --- 4. 按钮与反馈 --- */
+      .reset-btn {
+        position: absolute;
+        bottom: 30px;
+        right: 40px;
+        width: 100px;
+        height: 40px;
+        background-image: url("assets/reset.png");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: transparent;
+        border: none;
+        cursor: pointer;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+        z-index: 50;
+      }
+      .reset-btn:hover {
+        opacity: 1;
+      }
+
+      #feedback {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 30px 60px;
+        border-radius: 15px;
+        font-size: 28px;
+        display: none;
+        z-index: 100;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <!-- 目标桶区域 -->
+      <div class="bins-area">
+        <!-- 可回收桶 -->
+        <div
+          class="target-bin"
+          id="bin-recyclable"
+          ondragover="handleDragOver(event, this)"
+          ondrop="handleDrop(event, 'recyclable', this)"
+          ondragleave="handleDragLeave(event, this)"
+        ></div>
+
+        <!-- 厨余/其他桶 -->
+        <div
+          class="target-bin"
+          id="bin-kitchen"
+          ondragover="handleDragOver(event, this)"
+          ondrop="handleDrop(event, 'kitchen', this)"
+          ondragleave="handleDragLeave(event, this)"
+        ></div>
+      </div>
+
+      <!-- 垃圾物品 -->
+      <div class="items-area" id="items-container">
+        <!-- 易拉罐：可回收 -->
+        <div
+          class="garbage-item"
+          draggable="true"
+          ondragstart="handleDragStart(event, 'recyclable', this)"
+          id="item-yilaguan"
+        >
+          <img src="assets/fenlei/yilaguan.png" alt="易拉罐" />
+        </div>
+
+        <!-- T恤：可回收 -->
+        <div
+          class="garbage-item"
+          draggable="true"
+          ondragstart="handleDragStart(event, 'recyclable', this)"
+          id="item-tshirt"
+        >
+          <img src="assets/fenlei/tshirt.png" alt="T恤" />
+        </div>
+
+        <!-- 电池：有害垃圾 (other) - 暂时无处可去，或者设定不接受 -->
+        <div
+          class="garbage-item"
+          draggable="true"
+          ondragstart="handleDragStart(event, 'other', this)"
+          id="item-dianchi"
+        >
+          <img src="assets/fenlei/dianchi.png" alt="电池" />
+        </div>
+
+        <!-- 骨头：厨余垃圾 (kitchen) -->
+        <div
+          class="garbage-item"
+          draggable="true"
+          ondragstart="handleDragStart(event, 'kitchen', this)"
+          id="item-gutou"
+        >
+          <img src="assets/fenlei/gutou.png" alt="骨头" />
+        </div>
+      </div>
+
+      <button
+        class="reset-btn"
+        onclick="resetGame()"
+        aria-label="重置"
+      ></button>
+      <div id="feedback"></div>
+    </div>
+
+    <script>
+      let draggedItem = null; // 当前拖拽的元素 DOM
+      let draggedType = null; // 当前拖拽的类型
+
+      function handleDragStart(e, type, el) {
+        draggedType = type;
+        draggedItem = el;
+        e.dataTransfer.effectAllowed = "move";
+      }
+
+      function handleDragOver(e, binEl) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        binEl.classList.add("drag-over");
+      }
+
+      function handleDragLeave(e, binEl) {
+        binEl.classList.remove("drag-over");
+      }
+
+      function handleDrop(e, targetType, binEl) {
+        e.preventDefault();
+        binEl.classList.remove("drag-over");
+
+        if (!draggedItem) return;
+
+        // 判定逻辑: 拖拽类型与目标类型一致
+        if (draggedType === targetType) {
+          // 正确
+          draggedItem.style.visibility = "hidden";
+          draggedItem.style.display = "none";
+          showFeedback("✅ 分类正确！");
+          checkWin();
+        } else {
+          // 错误
+          let msg = "❌ 分类错误！";
+          if (targetType === "recyclable") msg = "❌ 这里是可回收垃圾桶！";
+          if (targetType === "kitchen") msg = "❌ 这里是厨余垃圾桶！"; // 假设chuyu是厨余
+
+          showFeedback(msg);
+
+          // 简单的晃动动画反馈
+          draggedItem.animate(
+            [
+              { transform: "translateX(0)" },
+              { transform: "translateX(-10px)" },
+              { transform: "translateX(10px)" },
+              { transform: "translateX(0)" },
+            ],
+            { duration: 300 }
+          );
+        }
+
+        draggedItem = null;
+        draggedType = null;
+      }
+
+      function checkWin() {
+        // 检查所有待分类项 (yilaguan, tshirt, chuyu, gutou)
+        // 电池没有对应桶，所以不计入胜利条件，或者如果用户视为干扰项则忽略
+        const targetIds = [
+          "item-yilaguan",
+          "item-tshirt",
+          "item-chuyu",
+          "item-gutou",
+        ];
+        const remaining = targetIds.filter((id) => {
+          const el = document.getElementById(id);
+          return el && el.style.display !== "none";
+        });
+
+        if (remaining.length === 0) {
+          setTimeout(() => {
+            showFeedback("🎉 垃圾分类完成！");
+          }, 500);
+        }
+      }
+
+      function showFeedback(text) {
+        const el = document.getElementById("feedback");
+        el.innerText = text;
+        el.style.display = "block";
+
+        // 清除上一次的 timer (简略处理)
+        setTimeout(() => {
+          el.style.display = "none";
+        }, 1500);
+      }
+
+      function resetGame() {
+        const items = document.querySelectorAll(".garbage-item");
+        items.forEach((item) => {
+          item.style.display = "block";
+          item.style.visibility = "visible";
+        });
+        document.getElementById("feedback").style.display = "none";
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>消除题 Demo</title>
+    <style>
+      /* --- 1. 全局与容器设置 --- */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "Microsoft YaHei", sans-serif;
+      }
+
+      #game-container {
+        width: 1280px;
+        height: 720px;
+        position: relative;
+        background-color: #87ceeb;
+        background-image: url("assets/eliminate/bj.png");
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+      }
+
+      /* --- 2. 标题框样式 (保持一致性) --- */
+
+      /* --- 3. 人物图片样式 --- */
+      .character {
+        position: absolute;
+        width: 150px; /* 假设图片宽度，可调整 */
+        height: auto;
+        cursor: pointer;
+        transition: top 1s ease-in-out, left 1s ease-in-out; /* 平滑移动效果 */
+        user-select: none;
+        z-index: 20;
+      }
+
+      .character:hover {
+        filter: brightness(1.2);
+        transform: scale(1.05);
+      }
+
+      .character:active {
+        transform: scale(0.95);
+      }
+
+      /* --- 4. 反馈弹窗 --- */
+      #feedback {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 30px 60px;
+        border-radius: 15px;
+        font-size: 28px;
+        display: none;
+        z-index: 100;
+        text-align: center;
+      }
+
+      /* --- 5. 重置按钮 --- */
+      .reset-btn {
+        position: absolute;
+        bottom: 24px;
+        right: 50px;
+        width: 120px;
+        height: 50px;
+        background-color: transparent;
+        background-image: url("assets/reset.png");
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+        border: none;
+        cursor: pointer;
+        z-index: 20;
+        transition: transform 0.1s;
+      }
+
+      .reset-btn:active {
+        transform: translateY(2px);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <!-- 人物容器 -->
+      <div id="characters-container">
+        <!-- 动态生成或静态写死 -->
+        <img
+          src="assets/eliminate/a.png"
+          class="character"
+          id="char-a"
+          alt="Character A"
+          draggable="false"
+        />
+        <img
+          src="assets/eliminate/b.png"
+          class="character"
+          id="char-b"
+          alt="Character B"
+          draggable="false"
+        />
+        <img
+          src="assets/eliminate/c.png"
+          class="character"
+          id="char-c"
+          alt="Character C"
+          draggable="false"
+        />
+      </div>
+
+      <button
+        class="reset-btn"
+        onclick="resetGame()"
+        aria-label="重置"
+      ></button>
+
+      <div id="feedback"></div>
+    </div>
+
+    <script>
+      // 配置
+      const MOVE_INTERVAL = 5000; // 5秒
+      const CONTAINER_WIDTH = 1280;
+      const CONTAINER_HEIGHT = 720;
+      const TOP_LIMIT_PERCENT = 0.25; // 25%
+
+      const characters = document.querySelectorAll(".character");
+      let moveTimer = null;
+
+      function init() {
+        // 初始位置随机
+        characters.forEach((char) => moveCharacter(char));
+
+        // 点击事件
+        characters.forEach((char) => {
+          char.onclick = () => eliminate(char);
+        });
+
+        // 定时移动
+        startMoving();
+      }
+
+      function startMoving() {
+        // 立即执行一次移动吗？需求是"每5秒移动一次"，初始位置已经在init里随机了
+        moveTimer = setInterval(() => {
+          characters.forEach((char) => {
+            if (char.style.display !== "none") {
+              moveCharacter(char);
+            }
+          });
+        }, MOVE_INTERVAL);
+      }
+
+      function moveCharacter(element) {
+        // 获取元素尺寸 (如果图片未加载完成可能不准，给个默认值或监听load)
+        // 这里假设图片宽度不超过200，高度不超过300，安全起见可以动态获取
+        const w = element.offsetWidth || 150;
+        const h = element.offsetHeight || 150;
+
+        const containerW = CONTAINER_WIDTH;
+        const containerH = CONTAINER_HEIGHT;
+
+        // 计算可用区域
+        // Top 必须 >= 25% * 720 = 180
+        const minTop = containerH * TOP_LIMIT_PERCENT;
+        const maxTop = containerH - h;
+        const maxLeft = containerW - w;
+
+        // 随机坐标
+        const randomX = Math.random() * maxLeft;
+        const randomY = minTop + Math.random() * (maxTop - minTop);
+
+        element.style.left = randomX + "px";
+        element.style.top = randomY + "px";
+      }
+
+      function eliminate(element) {
+        element.style.display = "none";
+
+        // 检查是否全部消除
+        checkWin();
+      }
+
+      function checkWin() {
+        const remaining = Array.from(characters).filter(
+          (c) => c.style.display !== "none"
+        );
+        if (remaining.length === 0) {
+          showFeedback("🎉 全部消除！");
+          clearInterval(moveTimer);
+        }
+      }
+
+      function showFeedback(text) {
+        const el = document.getElementById("feedback");
+        el.innerText = text;
+        el.style.display = "block";
+        setTimeout(() => {
+          el.style.display = "none";
+        }, 2000);
+      }
+
+      function resetGame() {
+        // 重置所有图片显示
+        characters.forEach((char) => {
+          char.style.display = "block";
+          moveCharacter(char);
+        });
+
+        // 重新开始计时器
+        clearInterval(moveTimer);
+        startMoving();
+
+        document.getElementById("feedback").style.display = "none";
+      }
+
+      // 确保图片加载后能正确计算宽高，不过 CSS 既然没定死宽高，最好onload
+      // 简单起见，延时一小会儿或者直接由 CSS 控制大概大小
+      window.onload = init;
+    </script>
+  </body>
+</html>

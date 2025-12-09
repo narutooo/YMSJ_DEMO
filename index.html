@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Courseware Demo Navigation</title>
+    <style>
+      /* --- 1. 全局与容器设置 --- */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "Microsoft YaHei", "Heiti SC", sans-serif;
+      }
+
+      #game-container {
+        width: 1280px;
+        height: 720px;
+        position: relative;
+        background-color: #87ceeb;
+        background-image: url("assets/select/bj.jpeg");
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      /* --- 3. 菜单按钮区域 --- */
+      .menu-container {
+        margin-top: 60px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 40px;
+        width: 600px;
+        align-items: center;
+      }
+
+      .menu-btn {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 20px;
+        text-decoration: none;
+        color: #333;
+        font-size: 32px;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        position: relative;
+        overflow: hidden;
+        border: 4px solid transparent;
+      }
+
+      .menu-btn:hover {
+        transform: translateY(-5px) scale(1.02);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        background: white;
+        border-color: #ffa500;
+        color: #ffa500;
+      }
+
+      .menu-btn:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      }
+
+      /* 为按钮添加交错的入场动画 */
+      .menu-btn:nth-child(1) {
+        animation: fadeInUp 0.5s ease-out 0.2s backwards;
+      }
+      .menu-btn:nth-child(2) {
+        animation: fadeInUp 0.5s ease-out 0.3s backwards;
+      }
+      .menu-btn:nth-child(3) {
+        animation: fadeInUp 0.5s ease-out 0.4s backwards;
+      }
+      .menu-btn:nth-child(4) {
+        animation: fadeInUp 0.5s ease-out 0.5s backwards;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* 装饰性元素 (可选) */
+      .btn-icon {
+        margin-right: 15px;
+        font-size: 36px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div class="menu-container">
+        <a href="fill.html" class="menu-btn">
+          <span class="btn-icon">📝</span> 选词填空
+        </a>
+        <a href="connect.html" class="menu-btn">
+          <span class="btn-icon">🔗</span> 连线题
+        </a>
+        <a href="eliminate.html" class="menu-btn">
+          <span class="btn-icon">✨</span> 消除题
+        </a>
+        <a href="select.html" class="menu-btn">
+          <span class="btn-icon">✅</span> 选择题
+        </a>
+        <a href="fenlei.html" class="menu-btn">
+          <span class="btn-icon">♻️</span> 垃圾分类
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

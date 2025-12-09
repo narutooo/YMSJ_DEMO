@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>交互课件 Demo</title>
+    <style>
+      /* --- 1. 全局与容器设置 --- */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #333; /* 画布外的深色背景 */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "Microsoft YaHei", sans-serif;
+      }
+
+      #game-container {
+        /* 设定固定的 16:9 画布 */
+        width: 1280px;
+        height: 720px;
+        position: relative;
+        background-color: #87ceeb; /* 背景颜色（图片加载前显示） */
+        /* TODO: 在这里替换你的背景图 */
+        background-image: url("assets/select/bj.jpeg");
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+      }
+
+      /* --- 2. 标题框样式 --- */
+      .title-box {
+        position: absolute;
+        top: 10%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 675px;
+        height: 150px;
+        padding: 0;
+        background-image: url("assets/select/bt.png");
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+        background-color: transparent;
+        border: none;
+        border-radius: 15px;
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+        text-align: center;
+        z-index: 10;
+      }
+
+      /* --- 3. 选项区域样式 --- */
+      .options-container {
+        position: absolute;
+        top: 40%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        gap: 20px; /* 选项之间的间距 */
+        z-index: 10;
+      }
+
+      .option-btn {
+        width: 300px;
+        height: 60px;
+        background-color: white;
+        border: 3px solid #ffd700;
+        border-radius: 30px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 20px;
+        color: #333;
+        font-weight: bold;
+      }
+
+      /* 选项字母的圆圈样式 */
+      .option-tag {
+        width: 36px;
+        height: 36px;
+        background-color: #ffa500;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-right: 15px;
+      }
+
+      /* 鼠标悬停状态 */
+      .option-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      /* 选中状态 (激活类名) */
+      .option-btn.selected {
+        background-color: #fff8dc; /* 选中变黄 */
+        border-color: #ff4500;
+        box-shadow: 0 0 10px #ff4500;
+      }
+
+      /* --- 4. 提交按钮样式 --- */
+      .submit-btn {
+        position: absolute;
+        bottom: 50px;
+        right: 50px;
+        width: 120px;
+        height: 50px;
+        background-image: url("assets/submit.png");
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+        background-color: transparent;
+        border: none;
+        border-radius: 0;
+        color: transparent;
+        font-size: 0;
+        font-weight: normal;
+        cursor: pointer;
+        z-index: 10;
+      }
+
+      .submit-btn:active {
+        transform: translateY(4px);
+        box-shadow: none;
+      }
+
+      /* --- 5. 简单的反馈弹窗 --- */
+      #feedback {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 20px 40px;
+        border-radius: 10px;
+        font-size: 24px;
+        display: none; /* 默认隐藏 */
+        z-index: 100;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div class="title-box" id="question-text">
+        面对飞岛的袭击，地面的人们的态度是怎样的？ ( )
+      </div>
+
+      <div class="options-container" id="options-box"></div>
+
+      <button
+        class="submit-btn"
+        onclick="checkAnswer()"
+        aria-label="提交"
+      ></button>
+
+      <div id="feedback"></div>
+    </div>
+
+    <script>
+      // --- 数据层：这里配置题目 ---
+      const questionData = {
+        question: "面对飞岛的袭击，地面的人们的态度是怎样的？ (    )",
+        options: [
+          { tag: "A", text: "惶惶不安" },
+          { tag: "B", text: "积极应对" },
+          { tag: "C", text: "悲伤痛苦" },
+        ],
+        correctTag: "B", // 正确答案
+      };
+
+      let currentSelection = null; // 记录当前选了谁
+
+      // --- 初始化：渲染页面 ---
+      function init() {
+        // 1. 渲染题目
+        document.getElementById("question-text").innerText = "";
+
+        // 2. 渲染选项
+        const container = document.getElementById("options-box");
+        questionData.options.forEach((opt) => {
+          const btn = document.createElement("div");
+          btn.className = "option-btn";
+          btn.onclick = () => selectOption(opt.tag, btn);
+          btn.innerHTML = `
+                    <div class="option-tag">${opt.tag}</div>
+                    <span>${opt.text}</span>
+                `;
+          container.appendChild(btn);
+        });
+      }
+
+      // --- 交互逻辑：选择选项 ---
+      function selectOption(tag, element) {
+        currentSelection = tag;
+
+        // 清除所有按钮的选中状态
+        const allBtns = document.querySelectorAll(".option-btn");
+        allBtns.forEach((b) => b.classList.remove("selected"));
+
+        // 给当前点击的按钮添加选中状态
+        element.classList.add("selected");
+      }
+
+      // --- 交互逻辑：提交答案 ---
+      function checkAnswer() {
+        const feedbackEl = document.getElementById("feedback");
+
+        if (!currentSelection) {
+          showFeedback("请先选择一个答案！");
+          return;
+        }
+
+        if (currentSelection === questionData.correctTag) {
+          showFeedback("🎉 回答正确！");
+          // 这里可以播放正确音效
+        } else {
+          showFeedback("❌ 遗憾，请再试一次。");
+          // 这里可以播放错误音效
+        }
+      }
+
+      function showFeedback(text) {
+        const el = document.getElementById("feedback");
+        el.innerText = text;
+        el.style.display = "block";
+
+        // 2秒后自动消失
+        setTimeout(() => {
+          el.style.display = "none";
+        }, 2000);
+      }
+
+      // 启动程序
+      init();
+    </script>
+  </body>
+</html>

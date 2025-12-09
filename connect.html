@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>连线题 Demo</title>
+    <style>
+      /* --- 1. 全局与容器设置 --- */
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "Microsoft YaHei", sans-serif;
+      }
+
+      #game-container {
+        width: 1280px;
+        height: 720px;
+        position: relative;
+        background-color: #87ceeb;
+        background-image: url("assets/connect/bj.jpeg");
+        background-size: cover;
+        background-position: center;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+      }
+
+      /* --- 2. 标题框样式 (复用 index.html) --- */
+      .title-box {
+        position: absolute;
+        top: 10%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 675px;
+        height: 150px;
+        padding: 0;
+        background-image: url("assets/connect/title.png");
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+        background-color: transparent;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        z-index: 10;
+        padding-bottom: 20px; /* 微调文字位置 */
+        box-sizing: border-box;
+      }
+
+      /* --- 3. 连线区域 --- */
+      .content-area {
+        position: absolute;
+        top: 32%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 800px;
+        display: flex;
+        justify-content: center;
+        gap: 200px;
+        z-index: 10;
+      }
+
+      .column {
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+      }
+
+      .item {
+        width: 200px;
+        height: 60px;
+        background-color: white;
+        border-radius: 30px; /* 圆角 */
+        color: black; /* 黑字 */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        border: 3px solid #ccc; /* 默认边框 */
+        transition: all 0.2s;
+        user-select: none;
+        position: relative; /* 用于连线定位 */
+      }
+
+      .item:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      /* 选中状态 */
+      .item.selected {
+        border-color: #ffa500;
+        background-color: #fff8dc;
+        box-shadow: 0 0 10px #ffa500;
+      }
+
+      /* 已连接状态 */
+      .item.connected {
+        background-color: #e0e0e0;
+        border-color: #888;
+        color: #555;
+      }
+
+      /* --- 4. SVG 画布 --- */
+      svg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none; /* 让点击穿透到下面的元素 */
+        z-index: 5;
+      }
+
+      line {
+        stroke: #333;
+        stroke-width: 4;
+        stroke-linecap: round;
+        transition: stroke 0.3s;
+      }
+
+      /* --- 5. 按钮样式 --- */
+      .submit-btn {
+        position: absolute;
+        bottom: 24px;
+        right: 50px;
+        width: 120px;
+        height: 50px;
+        background-image: url("assets/submit.png");
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+        background-color: transparent;
+        border: none;
+        cursor: pointer;
+        z-index: 20;
+        transition: transform 0.1s;
+      }
+
+      .submit-btn:active {
+        transform: translateY(2px);
+      }
+
+      .reset-btn {
+        position: absolute;
+        bottom: 24px;
+        right: 190px;
+        width: 120px;
+        height: 50px;
+        background-color: transparent;
+        background-image: url("assets/reset.png");
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+        border: none;
+        cursor: pointer;
+        z-index: 20;
+        transition: transform 0.1s;
+      }
+
+      .reset-btn:active {
+        transform: translateY(2px);
+      }
+
+      /* --- 6. 反馈弹窗 --- */
+      #feedback {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 30px 60px;
+        border-radius: 15px;
+        font-size: 28px;
+        display: none;
+        z-index: 100;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div class="title-box"></div>
+
+      <svg id="lines-svg"></svg>
+
+      <div class="content-area">
+        <div class="column" id="left-col">
+          <!-- 动态生成 -->
+        </div>
+        <div class="column" id="right-col">
+          <!-- 动态生成 -->
+        </div>
+      </div>
+
+      <button
+        class="reset-btn"
+        onclick="resetGame()"
+        aria-label="重置"
+      ></button>
+      <button class="submit-btn" onclick="checkAnswer()"></button>
+
+      <div id="feedback"></div>
+    </div>
+
+    <script>
+      // 题目数据
+      const data = [
+        { id: 1, text: "红色", color: "red" },
+        { id: 2, text: "黄色", color: "yellow" },
+        { id: 3, text: "蓝色", color: "blue" },
+        { id: 4, text: "绿色", color: "green" },
+      ];
+
+      // 生成左右列数据
+      // 左侧按顺序，右侧打乱
+      let leftItems = [...data];
+      let rightItems = [...data].sort(() => Math.random() - 0.5);
+
+      // 状态
+      let selected = null; // { side: 'left'|'right', index: number, value: string }
+      let connections = []; // [{ leftIndex, rightIndex, color }]
+
+      // 初始化
+      function init() {
+        renderColumns();
+      }
+
+      function renderColumns() {
+        const leftCol = document.getElementById("left-col");
+        const rightCol = document.getElementById("right-col");
+
+        leftCol.innerHTML = leftItems
+          .map(
+            (item, index) =>
+              `<div class="item" onclick="handleClick('left', ${index})" data-side="left" data-index="${index}">${item.text}</div>`
+          )
+          .join("");
+
+        rightCol.innerHTML = rightItems
+          .map(
+            (item, index) =>
+              `<div class="item" onclick="handleClick('right', ${index})" data-side="right" data-index="${index}">${item.text}</div>`
+          )
+          .join("");
+      }
+
+      function handleClick(side, index) {
+        const itemVal = side === "left" ? leftItems[index] : rightItems[index];
+
+        // 1. 如果已经点击了一个
+        if (selected) {
+          // 如果点击了同侧 (重选同侧)
+          if (selected.side === side) {
+            // 切换选中
+            selected = { side, index, value: itemVal };
+            updateVisuals();
+            return;
+          }
+
+          // 如果点击了异侧 -> 连线
+          if (selected.side !== side) {
+            // 确定左和右
+            const leftIdx = side === "left" ? index : selected.index;
+            const rightIdx = side === "right" ? index : selected.index;
+
+            // 检查这对索引是否已经被连过（完全重复）
+            const exists = connections.find(
+              (c) => c.leftIndex === leftIdx && c.rightIndex === rightIdx
+            );
+            if (!exists) {
+              // 如果左边已经连过别的，先移除旧连接
+              connections = connections.filter((c) => c.leftIndex !== leftIdx);
+              // 如果右边已经连过别的，先移除旧连接
+              connections = connections.filter(
+                (c) => c.rightIndex !== rightIdx
+              );
+
+              // 添加新连接
+              connections.push({ leftIndex: leftIdx, rightIndex: rightIdx });
+            }
+
+            // 清空选中状态
+            selected = null;
+            updateVisuals();
+          }
+        } else {
+          // 2. 还没有选中任何项 -> 选中当前
+          selected = { side, index, value: itemVal };
+          updateVisuals();
+        }
+      }
+
+      function updateVisuals() {
+        // 清除所有样式
+        document.querySelectorAll(".item").forEach((el) => {
+          el.classList.remove("selected");
+          el.classList.remove("connected");
+        });
+
+        // 选中样式
+        if (selected) {
+          const selEl = document.querySelector(
+            `.item[data-side="${selected.side}"][data-index="${selected.index}"]`
+          );
+          if (selEl) selEl.classList.add("selected");
+        }
+
+        // 已连接样式
+        connections.forEach((conn) => {
+          const lEl = document.querySelector(
+            `.item[data-side="left"][data-index="${conn.leftIndex}"]`
+          );
+          const rEl = document.querySelector(
+            `.item[data-side="right"][data-index="${conn.rightIndex}"]`
+          );
+          if (lEl) lEl.classList.add("connected");
+          if (rEl) rEl.classList.add("connected");
+        });
+
+        drawLines();
+      }
+
+      function drawLines() {
+        const svg = document.getElementById("lines-svg");
+        svg.innerHTML = ""; // 清除旧线
+
+        const containerRect = document
+          .getElementById("game-container")
+          .getBoundingClientRect();
+
+        connections.forEach((conn) => {
+          const lEl = document.querySelector(
+            `.item[data-side="left"][data-index="${conn.leftIndex}"]`
+          );
+          const rEl = document.querySelector(
+            `.item[data-side="right"][data-index="${conn.rightIndex}"]`
+          );
+
+          if (lEl && rEl) {
+            const lRect = lEl.getBoundingClientRect();
+            const rRect = rEl.getBoundingClientRect();
+
+            // 计算相对于 game-container 的坐标
+            // 起点：左边元素的右侧中心
+            const x1 = lRect.right - containerRect.left;
+            const y1 = lRect.top + lRect.height / 2 - containerRect.top;
+
+            // 终点：右边元素的左侧中心
+            const x2 = rRect.left - containerRect.left;
+            const y2 = rRect.top + rRect.height / 2 - containerRect.top;
+
+            const line = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "line"
+            );
+            line.setAttribute("x1", x1);
+            line.setAttribute("y1", y1);
+            line.setAttribute("x2", x2);
+            line.setAttribute("y2", y2);
+            // 随机颜色或固定颜色，这里用深色
+            line.setAttribute("stroke", "#555");
+            line.setAttribute("stroke-width", "4");
+
+            svg.appendChild(line);
+          }
+        });
+
+        // 如果只有选中一个，可以画一条跟随鼠标的线？(可选，暂不实现)
+      }
+
+      function resetGame() {
+        connections = [];
+        selected = null;
+        updateVisuals();
+        document.getElementById("feedback").style.display = "none";
+      }
+
+      function checkAnswer() {
+        if (connections.length === 0) {
+          showFeedback("请先进行连线！");
+          return;
+        }
+
+        let allCorrect = true;
+        // 检查所有连接
+        // 需检查每一条连线是否正确匹配
+        // 同时要检查是否所有项都连上了 (可选，通常要求全对)
+
+        if (connections.length !== leftItems.length) {
+          showFeedback("请完成所有连线！");
+          return;
+        }
+
+        for (let conn of connections) {
+          const leftVal = leftItems[conn.leftIndex];
+          const rightVal = rightItems[conn.rightIndex];
+          if (leftVal.id !== rightVal.id) {
+            // 用 id 判断是否匹配
+            allCorrect = false;
+            break;
+          }
+        }
+
+        if (allCorrect) {
+          showFeedback("🎉 太棒了，全对！");
+        } else {
+          showFeedback("❌ 有连线错误，请检查！");
+        }
+      }
+
+      function showFeedback(text) {
+        const el = document.getElementById("feedback");
+        el.innerText = text;
+        el.style.display = "block";
+        setTimeout(() => {
+          el.style.display = "none";
+        }, 2000);
+      }
+
+      // 窗口大小改变时重绘线
+      window.onresize = drawLines;
+
+      init();
+    </script>
+  </body>
+</html>
