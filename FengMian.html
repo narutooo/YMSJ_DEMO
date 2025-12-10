@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课件模板 - 海底两万里</title>
+    <style>
+        /* 基础重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: "Microsoft YaHei", "SimHei", sans-serif;
+        }
+
+        /* 容器设定：16:9 比例 
+           这里设定宽度为 1280px，您可以根据需要调整
+        */
+        .slide-container {
+            position: relative;
+            width: 1280px;
+            height: 720px;
+            background-color: #fff;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- 第1层：背景层 (Background Layer) --- */
+        .layer-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            /* 这里放入您的海底背景图 */
+            background-image: url('assets/FengMian/bj.png');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* 装饰元素：为了演示，我放了一个占位图代表章鱼/海草，您应该替换为透明PNG */
+        .layer-elements {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            /* 让鼠标穿透图片，方便点击文字 */
+        }
+
+        .element-octopus {
+            position: absolute;
+            right: 50px;
+            top: 100px;
+            width: 450px;
+            /* 根据实际图片调整 */
+            height: 450px;
+            /* 替换为您的章鱼图片 */
+            background-image: url('assets/octopus.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .element-logo {
+            position: absolute;
+            top: 0;
+            right: 40px;
+            width: 160px;
+            height: 60px;
+            background-image: url('assets/FengMian/logo.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            z-index: 10;
+        }
+
+
+
+
+        /* --- 第2层：白色区域 (White Panel) --- */
+        .layer-white-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 28%;
+            /* 大约占底部的 1/3 */
+            background-color: #ffffff;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 40px;
+            /* 为上面的红色条留出空间 */
+        }
+
+        /* 主标题文字 */
+        .main-title {
+            font-size: 86px;
+            font-weight: 900;
+            color: #333333;
+            letter-spacing: 4px;
+            position: relative;
+            outline: none;
+            /* 去除编辑时的蓝框 */
+        }
+
+        /* 课时标记 (01讲) */
+        .lecture-badge {
+            position: absolute;
+            top: -10px;
+            right: -80px;
+            font-size: 24px;
+            color: #ff3333;
+            border: 3px solid #ff3333;
+            border-radius: 50%;
+            width: 70px;
+            height: 40px;
+            line-height: 35px;
+            text-align: center;
+            font-weight: bold;
+            background: #fff;
+            transform: rotate(-10deg);
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- 第3层：红色UI框 (Red UI Box) --- */
+        .layer-red-ui {
+            position: absolute;
+            bottom: 24%;
+            /* 位于白色区域上方边缘 */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 4;
+
+            background-color: #ff3b4e;
+            padding: 12px 40px;
+            border-radius: 50px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sub-title {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            outline: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="slide-container">
+
+        <div class="layer-background">
+        </div>
+
+        <div class="layer-elements">
+            <div class="element-logo"></div>
+            <div class="element-octopus"></div>
+        </div>
+
+        <div class="layer-red-ui">
+            <div class="sub-title" contenteditable="true">
+                凡尔纳的前瞻性——大教授追捕海怪
+            </div>
+        </div>
+
+        <div class="layer-white-panel">
+            <div class="main-title" contenteditable="true">
+                海底两万里
+                <div class="lecture-badge" contenteditable="true">01讲</div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+
+</html>
