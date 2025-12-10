@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课件模板 - 左构图+标题</title>
+    <style>
+        /* 全局重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #333;
+            /* 画布外背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "KaiTi", "楷体", "STKaiti", serif;
+        }
+
+        /* 核心容器：1280px x 720px */
+        .slide-container {
+            position: relative;
+            width: 1280px;
+            height: 720px;
+            background-color: #fff;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ==============================
+           Layer 1: 背景
+           ============================== */
+        .layer-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .layer-background img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* ==============================
+           Layer 2: 书本 UI
+           ============================== */
+        .layer-book {
+            position: absolute;
+            top: 50%;
+            left: 50px;
+            /* 放在左侧 */
+            transform: translateY(-50%);
+            /* 仅垂直居中，水平靠左 */
+            width: 1000px;
+            /* 预估宽度 */
+            height: 650px;
+            /* 预估高度 */
+            z-index: 2;
+        }
+
+        .book-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* 书本内容区域 - 需根据素材留白调整 */
+        .book-content-area {
+            position: absolute;
+            top: 100px;
+            /* 避开书签，书签现在在边缘 */
+            left: 100px;
+            right: 100px;
+            bottom: 80px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            /* 允许内容在其中定位 */
+        }
+
+        /* 1. 可更改的黑色文字 */
+        .story-text-editable {
+            font-size: 28px;
+            line-height: 1.5;
+            /* 缩小行间距 */
+            color: #000;
+            text-align: justify;
+            flex: 1;
+            /*以此占据主要空间*/
+            overflow-y: auto;
+            /*如果文字过多，出现滚动条，避免遮挡*/
+            padding-bottom: 10px;
+        }
+
+        .story-text-editable p {
+            margin-bottom: 0.8em;
+            /* 缩小段间距 */
+            text-indent: 2em;
+        }
+
+        /* 底部元素容器 */
+        .bottom-elements-row {
+            display: flex;
+            justify-content: space-between;
+            /* 左右分开 */
+            align-items: flex-end;
+            /* 底部对齐 */
+            margin-top: 10px;
+            min-height: 80px;
+            /* 增加高度适应放大后的胶囊 */
+            flex-shrink: 0;
+            /* 防止被挤压 */
+        }
+
+        /* 左下角胶囊容器 */
+        .capsule-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            /* 增加间距 */
+        }
+
+        /* 2. 红色胶囊 */
+        .capsule-red {
+            background-color: #FF5252;
+            color: #fff;
+            padding: 12px 25px;
+            /* 放大 padding */
+            border-radius: 50px;
+            font-size: 24px;
+            /* 放大字体 */
+            font-weight: bold;
+            display: inline-block;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+        }
+
+        /* 3. 蓝色胶囊 */
+        .capsule-blue {
+            background-color: #448AFF;
+            color: #fff;
+            padding: 12px 25px;
+            /* 放大 padding */
+            border-radius: 50px;
+            font-size: 24px;
+            /* 放大字体 */
+            font-weight: bold;
+            display: inline-block;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+        }
+
+        /* 4. 紫色圆角描边矩形 */
+        .purple-box {
+            border: 2px solid #9C27B0;
+            color: #9C27B0;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 22px;
+            /* 稍微放大 */
+            font-weight: bold;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        /* ==============================
+           Layer 3: UI 标签等
+           ============================== */
+
+        /* 左上角大标签 */
+        .ui-tag-top-left {
+            position: absolute;
+            top: 0;
+            left: 30px;
+            width: auto;
+            height: 120px;
+            /* 预估 */
+            z-index: 10;
+        }
+
+        /* 书本左上角书签 container */
+        .bookmark-container {
+            position: absolute;
+            /* 放在书本UI框顶边上 - 微调向下 */
+            top: -30px;
+            left: 100px;
+            width: 400px;
+            /* 放大宽度 */
+            height: 90px;
+            /* 放大高度 */
+            z-index: 11;
+        }
+
+        /* 书签内的文字 */
+        .bookmark-text {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            /* 宽度撑满容器 */
+            color: #fff;
+            font-size: 24px;
+            /* 放大文字 */
+            text-align: center;
+            line-height: 1.2;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="slide-container">
+
+        <!-- Layer 1: 背景 -->
+        <div class="layer-background">
+            <img src="./assets/ZouGouTu+biaoti/bj.PNG" alt="背景">
+        </div>
+
+        <!-- Layer 2: 书本 -->
+        <div class="layer-book">
+            <img class="book-img" src="./assets/ZouGouTu+biaoti/book.png" alt="书本">
+
+            <!-- 书签 (依附于书本) -->
+            <div class="bookmark-container">
+                <img src="./assets/ZouGouTu+biaoti/ShuQian.png" alt="书签" style="width: 100%; height: 100%;">
+                <div class="bookmark-text">第五册第21页，有删改</div>
+            </div>
+
+            <!-- 书本内容 -->
+            <div class="book-content-area">
+                <!-- 1. 正文 -->
+                <div class="story-text-editable" contenteditable="true">
+                    <p>国王一点也没有注意到我们，他那时正在思考一个问题。我们至少等了一个钟头，他才解决了这个问题。他的两旁各站着一位手里拿着拍子的年轻拍手。</p>
+                    <p>他们俩看到他不再沉思，有了空暇时间，其中一位就轻轻地拍一下他的嘴，另一位拍了拍他的右耳，这样一来，他好像突然惊醒了过来，
+                        向我这边一看，又看到了围着我的那些人，这才想起了刚才他接到了报告并且要召见我。</p>
+                </div>
+
+                <!-- 底部 胶囊和矩形 -->
+                <div class="bottom-elements-row">
+                    <!-- 左下：红蓝胶囊 -->
+                    <div class="capsule-group">
+                        <div class="capsule-red" contenteditable="true">国王在干什么？</div>
+                        <div class="capsule-blue" contenteditable="true">为什么拍手要拍拍国王？</div>
+                    </div>
+
+                    <!-- 右下：紫色矩形 -->
+                    <div class="purple-box" contenteditable="true">
+                        空暇（kong xia）：空闲
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Layer 3: slide 左上角标签 -->
+        <img class="ui-tag-top-left" src="./assets/ZouGouTu+biaoti/YouBiaoQian.png" alt="左上标签">
+
+    </div>
+
+</body>
+
+</html>
