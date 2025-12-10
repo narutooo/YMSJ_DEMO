@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课件模板 - 分层结构</title>
+    <style>
+        /* 全局重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #333;
+            /* 仅为了在浏览器中看清楚画布边界 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "KaiTi", "楷体", "STKaiti", serif;
+            /* 模仿课件中的字体 */
+        }
+
+        /* 核心容器：模拟 16:9 画布 (1280px x 720px)
+           所有元素都基于这个容器进行绝对定位
+        */
+        .slide-container {
+            position: relative;
+            width: 1280px;
+            height: 720px;
+            background-color: #fff;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* ==============================
+           第一层：背景层 (Layer 1)
+           ============================== */
+        .layer-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .layer-background img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* ==============================
+           第二层：书本 UI 与文字 (Layer 2)
+           ============================== */
+        .layer-book {
+            position: absolute;
+            left: 0;
+            /* 书本在左侧 */
+            top: 50%;
+            transform: translateY(-50%);
+            /* 垂直居中 */
+            width: 950px;
+            height: 680px;
+            z-index: 2;
+        }
+
+        /* 书本底图 */
+        .book-bg-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            /* 保持比例 */
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* 文字容器：定位在书本内部 */
+        .text-container {
+            position: absolute;
+            top: 130px;
+            /* 调整顶部距离 */
+            left: 170px;
+            /* 调整左侧距离 */
+            right: 130px;
+            /* 调整右侧距离 */
+            bottom: 160px;
+            /* 提高底部距离，让红字上移 */
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            /* 上下分布：正文在上，红字在下 */
+        }
+
+        /* 黑色正文 */
+        .story-text {
+            font-size: 28px;
+            line-height: 1.8;
+            color: #333;
+            text-align: justify;
+        }
+
+        .story-text p {
+            margin-bottom: 20px;
+            text-indent: 2em;
+        }
+
+        /* 红色强调文字 - 放回书本内，去背景 */
+        .highlight-text {
+            font-size: 36px;
+            /* 放大到36px */
+            font-weight: bold;
+            color: #d32f2f;
+            /* 红色 */
+            text-align: center;
+            /* 居中显示 */
+            background-color: transparent;
+            /* 无背景 */
+            padding: 10px 0;
+            margin-bottom: 20px;
+            /* 额外上移一点 */
+        }
+
+        /* ==============================
+           第三层：UI 元素 (Layer 3)
+           ============================== */
+
+        /* 左上角：温故知新竖条 (bianqian_2) */
+        .ui-tag-top-left {
+            position: absolute;
+            top: 0;
+            /* 顶端对齐 */
+            left: 30px;
+            width: auto;
+            height: 150px;
+            /* 缩小高度 */
+            z-index: 10;
+        }
+
+        /* 左上角：一起阅读标题 (bianqian_1) */
+        .ui-header-title {
+            position: absolute;
+            top: 40px;
+            left: 100px;
+            width: auto;
+            height: 70px;
+            /* 预估高度 */
+            z-index: 11;
+        }
+
+        /* 左下角：猫大侠人物 */
+        .ui-character-bottom-left {
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            height: 280px;
+            /* 缩小为原来 350px 的 0.8 倍 */
+            width: auto;
+            z-index: 12;
+            transform-origin: bottom left;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="slide-container">
+
+        <!-- 第一层：背景 -->
+        <div class="layer-background">
+            <img src="./assets/YouGouTu/BJ.png" alt="背景">
+        </div>
+
+        <!-- 第二层：书本 -->
+        <div class="layer-book">
+            <img class="book-bg-img" src="./assets/YouGouTu/ShuBen.png" alt="书本">
+
+            <div class="text-container">
+                <div class="story-text" contenteditable="true">
+                    <p>可是，紫禁城里的侍卫比外面还多，喵大侠赶紧藏到了金水桥下面。这时，一群胖胖的锦鲤朝他游来。</p>
+                    <p>“请问你们见过一只小花猫吗？颜色……就像他一样。”喵大侠指着一条三花颜色的锦鲤问道。</p>
+                </div>
+
+                <div class="highlight-text" contenteditable="true">
+                    请你打开《一定要救你》第06页，<br>
+                    边读边思考：锦鲤们知道猫丫头的下落吗？
+                </div>
+            </div>
+        </div>
+
+        <!-- 第三层：UI 元素 -->
+        <!-- 温故知新 (bianqian_2) -->
+        <img class="ui-tag-top-left" src="./assets/YouGouTu/bianqian_2.png" alt="温故知新">
+
+        <!-- 一起阅读 (bianqian_1) -->
+        <img class="ui-header-title" src="./assets/YouGouTu/bianqian_1.png" alt="一起阅读">
+
+        <!-- 猫大侠 -->
+        <img class="ui-character-bottom-left" src="./assets/YouGouTu/cat.png" alt="猫大侠">
+
+    </div>
+
+</body>
+
+</html>
