@@ -85,3 +85,19 @@
     - 放入正确：物品消失并提示正确。
     - 放入错误：物品弹回并提示错误。
   - **胜利判定**: 收集完所有可回收和厨余物品后，显示“垃圾分类完成”的庆祝信息。
+
+帮我完成 @CongLinGame.html
+
+1. 所有的静态文件都在 assets/CongLinGame 目录
+2. 参考其他 HTML 的基本结构
+3. 布局：
+   3.1 bj.png 是背景
+   3.2 标题图片是背景在 top10%的位置，内容是：“选择题 1”
+   3.3 猴子 houZi 在 top 25% 的位置 left30%
+   3.4 assets/CongLinGame/tukuai.png 需要两个，在 bottom 10% 居中，内部分别 是选项 1 和选项 2
+   3.5 BaoXiangClose 在 top 25% 的位置 right20%
+
+4. 实际需求：
+   4.1 是一个选择题，用户选择选项 tukuai 正确后向上移到 top 30% 的位置（相当于把桥补齐了），然后 houZi 向右走 5%
+   4.2 接着答题，正确第二个 tukuai 向上移到 top 30% 的位置（相当于把桥补齐了），然后 houZi 向右走 5%
+   4.3 两个题都回答正确后，猴子走到 BaoXiangClose 面前，显示 BaoXiangOpen

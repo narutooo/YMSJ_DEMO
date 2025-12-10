@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CongLinGame</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: "Microsoft YaHei", sans-serif;
+      }
+
+      #game-container {
+        width: 1280px;
+        height: 720px;
+        position: relative;
+        overflow: hidden;
+        background: url("assets/CongLinGame/bj.png") no-repeat center/cover;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+
+      /* 标题 */
+      .title-box {
+        position: absolute;
+        top: 10%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 400px;
+        height: 100px;
+        background: url("assets/CongLinGame/biaoTi.png") no-repeat
+          center/contain;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        font-size: 32px;
+        font-weight: bold;
+        z-index: 10;
+        /* Text shadow for better visibility if needed */
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      /* 猴子 */
+      .monkey {
+        position: absolute;
+        top: 25%;
+        left: 18%;
+        width: 120px; /* 根据图片调整 */
+        height: auto;
+        transition: left 1s ease, top 1s ease;
+        z-index: 20;
+      }
+
+      .monkey img {
+        width: 100%;
+        display: block;
+      }
+
+      /* 宝箱 */
+      .chest {
+        position: absolute;
+        top: 30%;
+        right: 8%;
+        width: 150px;
+        height: auto;
+        z-index: 15;
+      }
+
+      .chest img {
+        width: 100%;
+        display: block;
+      }
+
+      /* 选项区域 */
+      .options-container {
+        position: absolute;
+        bottom: 10%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 100px;
+        z-index: 30;
+      }
+
+      /* 选项按钮 (土块) */
+      .option-btn {
+        width: 200px;
+        height: 80px;
+        background: url("assets/CongLinGame/tukuai.png") no-repeat center/100%
+          100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.2s;
+        /* Keep text unselectable */
+        user-select: none;
+      }
+
+      .option-btn:hover {
+        transform: scale(1.05);
+      }
+
+      /* 已经移动到桥位置的土块 */
+      .bridge-block {
+        position: absolute;
+        top: 30%;
+        width: 150px;
+        height: 180px;
+        background: url("assets/CongLinGame/tukuai.png") no-repeat center/100%
+          100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        font-size: 24px;
+        font-weight: bold;
+        z-index: 5;
+        transition: all 1s ease;
+      }
+      /* Reset Button */
+      .reset-btn {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        width: 80px;
+        height: 80px;
+        background: url("assets/reset.png") no-repeat center/contain;
+        cursor: pointer;
+        z-index: 100;
+        transition: transform 0.2s;
+      }
+      .reset-btn:hover {
+        transform: scale(1.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div class="title-box" id="title-text">选择题 1</div>
+
+      <div class="monkey" id="monkey">
+        <img src="assets/CongLinGame/houZi.png" alt="Monkey" />
+      </div>
+
+      <div class="chest" id="chest">
+        <img
+          id="chest-img"
+          src="assets/CongLinGame/BaoXiangClose.png"
+          alt="Chest"
+        />
+      </div>
+
+      <div class="options-container" id="options-box">
+        <!-- 选项生成在这里 -->
+      </div>
+
+      <!-- 存放已完成的桥块 -->
+      <div id="bridge-container"></div>
+
+      <!-- 重置按钮 -->
+      <div class="reset-btn" onclick="resetGame()"></div>
+    </div>
+
+    <script>
+      // 题目数据
+      // 假设我们要进行2轮回答
+      const gameData = [
+        {
+          title: "选择题 1",
+          options: [
+            { id: 1, text: "选项 1", isCorrect: true },
+            { id: 2, text: "选项 2", isCorrect: false },
+          ],
+        },
+        {
+          title: "选择题 2",
+          options: [
+            { id: 3, text: "选项 1", isCorrect: false }, // 假设逻辑类似
+            { id: 4, text: "选项 2", isCorrect: true },
+          ],
+        },
+      ];
+
+      let currentStep = 0;
+      const monkeyStartLeft = 30; // 30%
+      let monkeyCurrentLeft = 30;
+
+      // 桥的位置设定 (left %, top %)
+      // 用户指定固定值
+      const bridgePositions = [
+        { left: "38%", top: "47%" },
+        { left: "50%", top: "47%" },
+      ];
+
+      function initLevel(step) {
+        if (step >= gameData.length) {
+          // 全部答完，走向宝箱
+          finishGame();
+          return;
+        }
+
+        const data = gameData[step];
+        const titleEl = document.getElementById("title-text");
+        titleEl.innerText = data.title;
+
+        const optionsBox = document.getElementById("options-box");
+        optionsBox.innerHTML = ""; // 清空旧选项
+
+        data.options.forEach((opt, index) => {
+          const btn = document.createElement("div");
+          btn.className = "option-btn";
+          btn.innerText = opt.text;
+          btn.onclick = (e) => handleOptionClick(e, opt, step);
+          optionsBox.appendChild(btn);
+        });
+      }
+
+      function handleOptionClick(e, option, step) {
+        if (!option.isCorrect) {
+          // 错误处理，比如抖动或者提示，这里简单alert或者这就忽略
+          alert("选错了，请重试！");
+          return;
+        }
+
+        // 正确处理
+        // 1. 获取点击的元素位置，用于做动画起点
+        const targetBtn = e.target;
+        const rect = targetBtn.getBoundingClientRect();
+        const containerRect = document
+          .getElementById("game-container")
+          .getBoundingClientRect();
+
+        // 计算由于absolute定位需要的相对坐标
+        const rawLeft = rect.left - containerRect.left;
+        const rawTop = rect.top - containerRect.top;
+
+        // 创建一个用于动画的克隆体或者是新的block
+        const bridgeBlock = document.createElement("div");
+        bridgeBlock.className = "bridge-block";
+        bridgeBlock.innerText = option.text;
+
+        // 初始位置设为点击位置
+        bridgeBlock.style.left = rawLeft + "px";
+        bridgeBlock.style.top = rawTop + "px";
+        bridgeBlock.style.transition = "none"; // 先取消过渡以设定初始值
+
+        document.getElementById("game-container").appendChild(bridgeBlock);
+
+        // 强制重绘
+        bridgeBlock.offsetHeight;
+
+        // 设定过渡动画
+        bridgeBlock.style.transition = "all 1s ease";
+
+        // 目标位置
+        bridgeBlock.style.top = bridgePositions[step].top;
+        bridgeBlock.style.left = bridgePositions[step].left;
+
+        // 隐藏原来的按钮区，避免重复点击
+        document.getElementById("options-box").innerHTML = "";
+
+        // 动画完成后
+        // 第二次(step=1)先停一下（比第一次多等1秒），再走动
+        const delayBeforeMove = step === 1 ? 2500 : 1000;
+
+        setTimeout(() => {
+          // 2. 猴子移动
+          // 需求：猴子第一次移动 left35%,第二次移动 left52%
+          // 且使用和最后一次类似的走动效果(linear 1.5s)
+          const monkeyMoveTargets = [39, 53];
+
+          if (step < monkeyMoveTargets.length) {
+            const monkey = document.getElementById("monkey");
+            // 使用与最后一次一致的动画效果，稍微快一点 (1.5s)
+            monkey.style.transition = "left 1.5s linear";
+            monkey.style.left = monkeyMoveTargets[step] + "%";
+          }
+
+          // 等待猴子走完 (1.5s)
+          setTimeout(() => {
+            // 进入下一题
+            currentStep++;
+            initLevel(currentStep);
+          }, 2000);
+        }, delayBeforeMove);
+      }
+
+      function finishGame() {
+        // 两个题都回答正确后，猴子走到BaoXiangClose面前
+        // BaoXiangClose在 right 20% -> left 80%
+        // 猴子当前应该在 40% (30 + 5 + 5)
+        // 走到 70% 左右即可接触
+        const monkey = document.getElementById("monkey");
+        monkey.style.transition = "left 1.5s linear"; // 走得慢一点或者匀速 (1.5s)
+        monkey.style.left = "70%";
+
+        setTimeout(() => {
+          // 显示BaoXiangOpen
+          document.getElementById("chest-img").src =
+            "assets/CongLinGame/BaoXiangOpen.png";
+
+          // 可选：完成提示
+          // alert("恭喜通关！");
+        }, 1500);
+      }
+
+      function resetGame() {
+        // 重置步数
+        currentStep = 0;
+        monkeyCurrentLeft = 30; // 虽然这个变量现在主要没用，但也重置一下
+
+        // 重置猴子位置
+        const monkey = document.getElementById("monkey");
+        monkey.style.transition = "none"; // 瞬间复位
+        monkey.style.left = "18%";
+        // 强制重绘
+        monkey.offsetHeight;
+        monkey.style.transition = "left 1s ease, top 1s ease"; // 恢复默认
+
+        // 重置宝箱
+        document.getElementById("chest-img").src =
+          "assets/CongLinGame/BaoXiangClose.png";
+
+        // 清空桥
+        const bridgeBlocks = document.querySelectorAll(".bridge-block");
+        bridgeBlocks.forEach((block) => block.remove());
+        // 重新开始关卡
+        initLevel(0);
+      }
+
+      // Start
+      initLevel(0);
+    </script>
+  </body>
+</html>
