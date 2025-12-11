@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR 全景体验</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #000;
+        }
+
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+            transition: opacity 0.8s ease-out, visibility 0.8s;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        #overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-align: center;
+            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(45deg, #00f0ff, #00ff87);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #ccc;
+            margin-bottom: 2rem;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.6;
+        }
+
+        .start-btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            background: linear-gradient(90deg, #0066ff, #00ccff);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 153, 255, 0.5);
+            transition: transform 0.3s, box-shadow 0.3s;
+            font-weight: bold;
+            letter-spacing: 1px;
+            outline: none;
+            text-transform: uppercase;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 153, 255, 0.8);
+        }
+
+        /* 隐藏 A-Frame 默认的 VR 按钮，如果你想自定义的话。这里保留默认，但稍微调整位置 */
+        .a-enter-vr-button {
+            bottom: 30px !important;
+            right: 30px !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Loading / Start Overlay -->
+    <div id="overlay">
+        <div class="title">VR 全景体验</div>
+        <div class="subtitle">拖动屏幕查看全景 • 点击下方按钮开始体验</div>
+        <button class="start-btn" id="startBtn">进入体验</button>
+    </div>
+
+    <!-- VR Scene -->
+    <!-- 
+       embedded: 嵌入模式，去除了全屏强制
+       loading-screen: 自定义加载背景色 
+    -->
+    <a-scene loading-screen="backgroundColor: #000; dotsColor: #00f0ff">
+        <a-assets>
+            <img id="sky-texture" src="./assets/VR/StandardCubeMap.jpg" crossorigin="anonymous">
+        </a-assets>
+
+        <!-- 360 Sky Sphere -->
+        <!-- 
+           src: 引用资源
+           rotation: 初始旋转角度，可根据图片内容调整
+        -->
+        <a-sky src="#sky-texture" rotation="0 -90 0"></a-sky>
+
+        <!-- Camera rig -->
+        <a-entity position="0 0 0" rotation="0 0 0">
+            <a-camera look-controls="enabled: true; reverseMouseDrag: false" wasd-controls="enabled: false">
+                <!-- Cursor: 视觉中心点，方便识别正前方 -->
+                <a-cursor color="#FFF" scale="0.8 0.8 0.8" opacity="0.5"
+                    animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 0.8 0.8 0.8; to: 0.1 0.1 0.1"
+                    animation__fusing="property: scale; startEvents: fusing; easing: easeInCubic; dur: 1500; from: 0.8 0.8 0.8; to: 0.1 0.1 0.1"
+                    animation__mouseleave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 500; to: 0.8 0.8 0.8">
+                </a-cursor>
+            </a-camera>
+        </a-entity>
+    </a-scene>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = document.getElementById('overlay');
+            const startBtn = document.getElementById('startBtn');
+
+            // 点击开始按钮，隐藏遮罩
+            startBtn.addEventListener('click', () => {
+                overlay.classList.add('hidden');
+                // 可以在这里添加进入 VR 模式的逻辑
+                // document.querySelector('a-scene').enterVR(); 
+            });
+        });
+    </script>
+</body>
+
+</html>
