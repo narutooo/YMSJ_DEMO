@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互动投票</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #333;
+            /* 背景色，方便看清楚画布边界 */
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        .container {
+            width: 1280px;
+            height: 720px;
+            background-image: url('assets/touPiao/bj.png');
+            background-size: 100% 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            /* 给画布加个阴影 */
+        }
+
+        /* 标题部分 */
+        .title-box {
+            position: absolute;
+            top: 10%;
+            /* 根据页面大概位置调整 */
+            width: 70%;
+            /* 估计宽度 */
+            max-width: 900px;
+            aspect-ratio: 1142/117;
+            background-image: url('assets/touPiao/bt.png');
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .title-text {
+            font-size: 2.5vw;
+            color: #fff;
+            /* 假设文字颜色 */
+            font-weight: bold;
+            outline: none;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-top: -1%;
+            /* 微调文字位置 */
+        }
+
+        /* 选项区域 */
+        .options-container {
+            position: absolute;
+            top: 40%;
+            width: 80%;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .option-item {
+            position: relative;
+            width: 35%;
+            max-width: 400px;
+            aspect-ratio: 518/229;
+            /* 修正为真实图片比例 */
+            background-image: url('assets/touPiao/xuanXiang.png');
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            padding: 0 10%;
+            /* 增加内边距，确保文字在中间区域（假设的绿色树叶范围） */
+        }
+
+        .option-item:active {
+            transform: scale(0.95);
+        }
+
+        .option-text {
+            position: absolute;
+            top: 50%;
+            left: 60%;
+            /* 继续向右移动，设为60% */
+            transform: translate(-50%, -50%);
+            width: 60%;
+            /* 限制文字宽度，确保不超出叶子范围 */
+            text-align: center;
+            font-size: 2.2vw;
+            /* 稍微缩小字号，更精致 */
+            color: #333;
+            font-weight: bold;
+            outline: none;
+            z-index: 2;
+            pointer-events: auto;
+            line-height: 1.2;
+            /* 确保可以点击编辑 */
+        }
+
+        /* 投票反馈简单动画/显示 */
+        .vote-count {
+            position: absolute;
+            bottom: -30px;
+            font-size: 1.5rem;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            opacity: 0;
+            /* 默认隐藏，点击后显示 */
+            transition: opacity 0.3s;
+        }
+
+        /* 选中时的发光效果 */
+        .option-item.selected {
+            filter: drop-shadow(0 0 15px rgba(255, 255, 0, 0.8));
+            /* 黄色发光 */
+            transform: scale(1.05);
+            /* 稍微放大一点 */
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- 标题 -->
+        <div class="title-box">
+            <div class="title-text" contenteditable="true">点击此处编辑标题</div>
+        </div>
+
+        <!-- 选项 -->
+        <div class="options-container">
+            <!-- 选项 A -->
+            <div class="option-item" id="optionA" onclick="vote('A')">
+                <div class="option-text" contenteditable="true" onclick="event.stopPropagation()">选项 A</div>
+                <div class="vote-count" id="countA">票数: 0</div>
+            </div>
+
+            <!-- 选项 B -->
+            <div class="option-item" id="optionB" onclick="vote('B')">
+                <div class="option-text" contenteditable="true" onclick="event.stopPropagation()">选项 B</div>
+                <div class="vote-count" id="countB">票数: 0</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟后台数据
+        let votes = {
+            A: 0,
+            B: 0
+        };
+
+        function vote(option) {
+            votes[option]++;
+            console.log(`投票给 ${option}，当前票数：`, votes);
+
+            // 更新显示 (模拟后台看见)
+            const countEl = document.getElementById(`count${option}`);
+            countEl.textContent = `票数: ${votes[option]}`;
+            countEl.style.opacity = 1;
+
+            // 处理发光效果：先移除所有选项的selected类，再给当前点击的加上
+            document.querySelectorAll('.option-item').forEach(el => el.classList.remove('selected'));
+            const item = document.getElementById(`option${option}`);
+            item.classList.add('selected');
+        }
+    </script>
+</body>
+
+</html>
