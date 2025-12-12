@@ -81,10 +81,80 @@
             box-shadow: 0 0 30px rgba(0, 153, 255, 0.8);
         }
 
-        /* 隐藏 A-Frame 默认的 VR 按钮，如果你想自定义的话。这里保留默认，但稍微调整位置 */
+        /* 隐藏 A-Frame 默认的 VR 按钮 (需求2: 去掉全屏/VR按钮) */
         .a-enter-vr-button {
-            bottom: 30px !important;
-            right: 30px !important;
+            display: none !important;
+        }
+
+        #story-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            /* 黑色半透明蒙版 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            /* 比 overlay 更高 */
+            transition: opacity 0.5s;
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #story-layer.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .story-content {
+            max-width: 80%;
+            max-height: 80%;
+            /* Removed border-radius and box-shadow specific styles as requested */
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.5);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* 需求1: 确保音频按钮在最上层可见 */
+        .audio-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            z-index: 99999 !important;
+            /* 强制最高层级 */
+            cursor: pointer;
+            transition: transform 0.2s;
+            filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+            display: block;
+            /* 确保不被隐藏 */
+        }
+
+        .audio-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .audio-btn img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            pointer-events: none;
+            /* 让点击穿透到父级 div */
         }
     </style>
 </head>
@@ -98,6 +168,19 @@
         <button class="start-btn" id="startBtn">进入体验</button>
     </div>
 
+    <!-- Story Popup Overlay -->
+    <div id="story-layer" class="hidden">
+        <img src="./assets/VR/ren.png" alt="Character" class="story-content">
+    </div>
+
+    <!-- Audio Control Button -->
+    <div id="audio-control" class="audio-btn">
+        <img id="audio-icon" src="./assets/VR/open.png" alt="Audio Control">
+    </div>
+
+    <audio id="story-audio" src="./assets/VR/audio.mp3"></audio>
+    <audio id="scene2-audio" src="./assets/VR/audio_2.mp3"></audio>
+
     <!-- VR Scene -->
     <!-- 
        embedded: 嵌入模式，去除了全屏强制
@@ -106,6 +189,9 @@
     <a-scene loading-screen="backgroundColor: #000; dotsColor: #00f0ff">
         <a-assets>
             <img id="sky-texture" src="./assets/VR/StandardCubeMap.jpg" crossorigin="anonymous">
+            <img id="renwu-texture" src="./assets/VR/RenWu.png" crossorigin="anonymous">
+            <img id="dot-texture" src="./assets/VR/dot.png" crossorigin="anonymous">
+            <img id="gczw-texture" src="./assets/VR/Gczw_icon.png" crossorigin="anonymous">
         </a-assets>
 
         <!-- 360 Sky Sphere -->
@@ -115,15 +201,46 @@
         -->
         <a-sky src="#sky-texture" rotation="0 -90 0"></a-sky>
 
+        <!-- 交互人物 (任务 Banner) -->
+        <!-- 
+           原始尺寸 547x73 (约 7.5:1)
+           位置调整到标记 2 (上方居中)
+        -->
+        <a-image id="renwu-entity" src="#renwu-texture" position="0 3.5 -6" width="4.5" height="0.6" class="clickable">
+        </a-image>
+
+        <!-- 跳转热点 (Dot) -->
+        <!-- 
+           位于 RenWu 下方 (Y=3.5 -> Y=2.5) 
+        -->
+        <a-image id="dot-entity" src="#dot-texture" position="0 2.5 -6" width="0.5" height="0.5" class="clickable">
+            <!-- width/height 待定，假设是正方形图标 -->
+            <!-- 可以加个简单的悬浮动画 -->
+            <a-animation attribute="scale" dur="1000" from="1 1 1" to="1.2 1.2 1.2" direction="alternate"
+                repeat="indefinite">
+            </a-animation>
+        </a-image>
+
+        <!-- 场景2中的音频图标 -->
+        <!-- 初始隐藏，切换场景后显示 -->
+        <!-- 原始尺寸 828x74 (约 11.2:1) -->
+        <!-- 放大尺寸以匹配视觉效果 -->
+        <a-image id="gczw-entity" src="#gczw-texture" position="0 5 -8" width="9" height="0.8" class="clickable"
+            visible="false">
+        </a-image>
+
         <!-- Camera rig -->
         <a-entity position="0 0 0" rotation="0 0 0">
             <a-camera look-controls="enabled: true; reverseMouseDrag: false" wasd-controls="enabled: false">
-                <!-- Cursor: 视觉中心点，方便识别正前方 -->
-                <a-cursor color="#FFF" scale="0.8 0.8 0.8" opacity="0.5"
-                    animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 0.8 0.8 0.8; to: 0.1 0.1 0.1"
-                    animation__fusing="property: scale; startEvents: fusing; easing: easeInCubic; dur: 1500; from: 0.8 0.8 0.8; to: 0.1 0.1 0.1"
-                    animation__mouseleave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 500; to: 0.8 0.8 0.8">
-                </a-cursor>
+                <!-- Cursor: 视觉中心点，必须配置 raycaster 才能响应点击 -->
+                <!-- 
+                     fuse: false (PC上点击不使用注视等待)
+                     raycaster: 仅检测 .clickable 类，优化性能
+                -->
+                <a-entity cursor="fuse: false; rayOrigin: mouse" raycaster="objects: .clickable" position="0 0 -1"
+                    geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                    material="color: white; shader: flat; opacity: 0.5" visible="false">
+                </a-entity>
             </a-camera>
         </a-entity>
     </a-scene>
@@ -138,6 +255,151 @@
                 overlay.classList.add('hidden');
                 // 可以在这里添加进入 VR 模式的逻辑
                 // document.querySelector('a-scene').enterVR(); 
+            });
+
+            // 人物点击交互
+            const renwu = document.querySelector('#renwu-entity');
+            const storyLayer = document.getElementById('story-layer');
+            const storyAudio = document.getElementById('story-audio');
+
+            // 音频控制逻辑
+            const audioBtn = document.getElementById('audio-control');
+            const audioIcon = document.getElementById('audio-icon');
+            let isAudioEnabled = true;
+
+            const scene2Audio = document.getElementById('scene2-audio');
+
+            audioBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // 防止冒泡
+                isAudioEnabled = !isAudioEnabled;
+
+                if (isAudioEnabled) {
+                    // 开启音频
+                    audioIcon.src = "./assets/VR/open.png";
+                    // 如果因为关闭音频而暂停了，且当前蒙版是显示的，则恢复播放
+                    if (!storyLayer.classList.contains('hidden')) {
+                        storyAudio.play().catch(e => console.log(e));
+                    }
+                } else {
+                    // 关闭音频
+                    audioIcon.src = "./assets/VR/close.png";
+                    storyAudio.pause();
+                    scene2Audio.pause(); // 同时也暂停场景2的音频
+                }
+            });
+
+            // 点击故事层关闭
+            storyLayer.addEventListener('click', () => {
+                storyLayer.classList.add('hidden');
+                storyAudio.pause();
+                storyAudio.currentTime = 0;
+            });
+
+            renwu.addEventListener('click', () => {
+                const camera = document.querySelector('a-camera');
+
+                // 1. 播放放大动画 (强制放大)
+                let currentFov = parseFloat(camera.getAttribute('fov') || 80);
+
+                camera.setAttribute('animation', {
+                    property: 'fov',
+                    from: currentFov, // 保证平滑
+                    to: 40,   // 目标 FOV
+                    dur: 1500,
+                    easing: 'easeInOutQuad'
+                });
+
+                // 2. 显示蒙版和图片
+                storyLayer.classList.remove('hidden');
+
+                // 3. 播放音频 (如果允许)
+                if (isAudioEnabled) {
+                    storyAudio.currentTime = 0; // 重置进度
+                    storyAudio.play().catch(e => console.error("Audio play failed:", e));
+                }
+            });
+
+            // 场景跳转交互 (点击 dot)
+            const dot = document.querySelector('#dot-entity');
+            const sky = document.querySelector('a-sky');
+            const gczw = document.querySelector('#gczw-entity');
+
+            dot.addEventListener('click', () => {
+                const camera = document.querySelector('a-camera');
+
+                // 需求：点击后有一个镜头前推的效果 (Zoom In)，然后再跳转
+
+                // 1. 获取当前 FOV
+                let currentFov = parseFloat(camera.getAttribute('fov') || 80);
+
+                // 2. 播放前推动画 (FOV 变小)
+                camera.setAttribute('animation', {
+                    property: 'fov',
+                    from: currentFov,
+                    to: 30,    // 放大效果
+                    dur: 800,  // 持续 800ms
+                    easing: 'easeInQuad'
+                });
+
+                // 3. 动画结束后切换场景
+                setTimeout(() => {
+                    // 切换全景图
+                    sky.setAttribute('src', './assets/VR/quanJing_2.jpg');
+
+                    // 停止动画，防止干扰
+                    camera.removeAttribute('animation');
+
+                    // 切换后直接设置为最广角 (FOV 100)，画面静止
+                    camera.setAttribute('fov', 100);
+
+                    // 隐藏上一个场景的交互物
+                    renwu.setAttribute('visible', false);
+                    dot.setAttribute('visible', false);
+
+                    // 显示新场景的交互物
+                    gczw.setAttribute('visible', true);
+
+                    // 停止音频
+                    storyAudio.pause();
+                }, 800);
+            });
+
+            // 场景2：音频图标点击交互
+            gczw.addEventListener('click', () => {
+                if (isAudioEnabled) {
+                    // 播放场景2的音频
+                    // 如果正在播放，就重置进度重新播放，或者可以做暂停逻辑
+                    if (scene2Audio.paused) {
+                        scene2Audio.currentTime = 0;
+                        scene2Audio.play().catch(e => console.error(e));
+                    } else {
+                        // 如果已经在播放，点击也许可以暂停？或者重新开始。这里暂定重新开始。
+                        scene2Audio.currentTime = 0;
+                        scene2Audio.play().catch(e => console.error(e));
+                    }
+                }
+            });
+
+            // 鼠标滚轮缩放功能
+            const camera = document.querySelector('a-camera');
+            window.addEventListener('wheel', (event) => {
+                // 如果正在播放动画，可能需要停止它，或者让用户手动接管
+                camera.removeAttribute('animation');
+
+                // 获取当前 FOV
+                let currentFov = camera.getAttribute('fov');
+                let fov = currentFov ? parseFloat(currentFov) : 80;
+
+                if (isNaN(fov)) fov = 80;
+
+                // 根据滚轮方向调整 FOV
+                const zoomSpeed = 0.05;
+                fov += event.deltaY * zoomSpeed;
+
+                // 限制 FOV 范围
+                fov = Math.max(30, Math.min(100, fov));
+
+                camera.setAttribute('fov', fov);
             });
         });
     </script>
