@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>居中构图 - 课件编辑器</title>
+    <style>
+        /* CSS Reset & Global Typography */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #2c2c2c;
+            /* Neutral dark workspace */
+            font-family: 'Noto Sans SC', sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Main Canvas Application Area */
+        #canvas-stage {
+            width: 1920px;
+            height: 1080px;
+            background-color: #ffffff;
+            background-image: url('./assets/JuZhongGouTu/bj.png');
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            position: relative;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+            transform-origin: center center;
+            overflow: hidden;
+        }
+
+        /* Draggable Element Containers */
+        .element-wrapper {
+            position: absolute;
+            display: inline-block;
+            cursor: move;
+            /* Fallback */
+            cursor: grab;
+            transition: outline 0.1s;
+        }
+
+        .element-wrapper:active {
+            cursor: grabbing;
+        }
+
+        .element-wrapper img {
+            display: block;
+            pointer-events: none;
+            /* Pass events to wrapper */
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Selection Styling */
+        .element-wrapper.selected {
+            outline: 3px solid #1890ff;
+            /* Ant Design Blue */
+            z-index: 1000 !important;
+            /* Bring to front */
+        }
+
+        /* Control UI (Delete, Layers) */
+        .controls {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .element-wrapper.selected .controls {
+            display: flex;
+        }
+
+        .control-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            background: #ffffff;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            font-size: 18px;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .control-btn:hover {
+            background: #1890ff;
+            color: white;
+        }
+
+        .control-btn.delete:hover {
+            background: #ff4d4f;
+        }
+
+        /* Editable Text Areas */
+        .text-area {
+            position: absolute;
+            min-width: 50px;
+            min-height: 30px;
+            color: #333;
+            font-size: 24px;
+            line-height: 1.5;
+            cursor: text;
+            user-select: text;
+            /* Allow text selection */
+            padding: 5px;
+            border: 1px dashed transparent;
+            transition: border-color 0.2s;
+        }
+
+        .text-area:hover {
+            border-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .text-area:focus {
+            outline: none;
+            border-color: #1890ff;
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Placeholder styles adjusted for "Center Composition" roughly around the submarine */
+        /* Title */
+        #el-title {
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Main Visual (Submarine) */
+        #el-center {
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Surrounding Labels - Closer to center to match "JuZhong" (Center) focus */
+        /* Item 1: Top Left relative to center */
+        #el-dec-1 {
+            top: 350px;
+            left: 450px;
+        }
+
+        /* Item 2: Top Right */
+        #el-dec-2 {
+            top: 350px;
+            left: 1250px;
+        }
+
+        /* Item 3: Bottom Left (Near tail/body of sub) */
+        #el-dec-3 {
+            top: 650px;
+            left: 450px;
+        }
+
+        /* Item 4: Bottom Right */
+        #el-dec-4 {
+            top: 650px;
+            left: 1250px;
+        }
+
+        /* Tag is often an extra label, maybe above the sub? or Floating */
+        #el-tag {
+            top: 480px;
+            left: 960px;
+            transform: translateX(-50%);
+            z-index: 900;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="canvas-stage">
+
+        <!-- Element: Title Wrapper -->
+        <div class="element-wrapper" id="el-title">
+            <div class="controls">
+                <div class="control-btn delete" title="删除">✕</div>
+            </div>
+            <img src="./assets/JuZhongGouTu/bt.png" alt="标题背景" draggable="false">
+            <div class="text-area" contenteditable="true" style="
+                top: 50%; left: 50%; transform: translate(-50%, -10%);
+                width: 600px; text-align: center; color: #fff; 
+                font-weight: 900; font-size: 42px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            ">
+                整本书核心收获
+            </div>
+            <div class="text-area" contenteditable="true" style="
+                top: 100%; left: 50%; transform: translateX(-50%); margin-top: 10px;
+                width: 600px; text-align: center; color: #fff; 
+                font-size: 24px; opacity: 0.9;
+            ">
+                请输入课程标题
+            </div>
+        </div>
+
+        <!-- Element: Center Image (Submarine) -->
+        <div class="element-wrapper" id="el-center">
+            <div class="controls">
+                <div class="control-btn delete" title="删除">✕</div>
+            </div>
+            <img src="./assets/JuZhongGouTu/ZhongJian.png" alt="中心主体" draggable="false">
+        </div>
+
+        <!-- Element: Center Floating Tag (e.g. "海底两万里") -->
+        <div class="element-wrapper" id="el-tag">
+            <div class="controls">
+                <div class="control-btn delete" title="删除">✕</div>
+            </div>
+            <img src="./assets/JuZhongGouTu/YouBiaoQian.png" alt="标签" draggable="false">
+            <div class="text-area" contenteditable="true" style="
+                top: 50%; left: 50%; transform: translate(-50%, -50%);
+                width: 200px; text-align: center; color: #fff; 
+                font-size: 24px; font-weight: bold;
+            ">
+                海底两万里
+            </div>
+        </div>
+
+        <!-- Element: Top Left (1) -->
+        <div class="element-wrapper" id="el-dec-1">
+            <div class="controls">
+                <div class="control-btn delete" title="删除">✕</div>
+            </div>
+            <img src="./assets/JuZhongGouTu/1.png" alt="装饰1" draggable="false">
+            <!-- Title Text Inside the Bubble/Image -->
+            <div class="text-area" contenteditable="true" style="
+                top: 45%; left: 50%; transform: translate(-40%, -50%);
+                width: 180px; text-align: center; font-size: 28px; 
+                font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            ">
+                阅读积累
+            </div>
+            <!-- Subtitle Text Below -->
+            <div class="text-area" contenteditable="true" style="
+                top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px;
+                width: 250px; text-align: center; font-size: 20px; 
+                font-weight: normal; color: #333;
+            ">
+                知识点一
+            </div>
+        </div>
+
+        <!-- Element: Top Right (2) -->
+        <div class="element-wrapper" id="el-dec-2">
+            <div class="controls">
+                <div class="control-btn delete" title="删除">✕</div>
+            </div>
+            <img src="./assets/JuZhongGouTu/2.png" alt="装饰2" draggable="false">
+            <div class="text-area" contenteditable="true" style="
+                top: 45%; left: 50%; transform: translate(-40%, -50%);
+                width: 180px; text-align: center; font-size: 28px; 
+                font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            ">
+                写作手法
+            </div>
+            <div class="text-area" contenteditable="true" style="
+                top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px;
+                width: 250px; text-align: center; font-size: 20px; 
+                font-weight: normal; color: #333;
+            ">
+                知识点二
+            </div>
+        </div>
+
+        <!-- Element: Bottom Left (3) -->
+        <div class="element-wrapper" id="el-dec-3">
+            <div class="controls">
+                <div class="control-btn delete" title="删除">✕</div>
+            </div>
+            <img src="./assets/JuZhongGouTu/3.png" alt="装饰3" draggable="false">
+            <div class="text-area" contenteditable="true" style="
+                top: 45%; left: 50%; transform: translate(-40%, -50%);
+                width: 180px; text-align: center; font-size: 28px; 
+                font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            ">
+                校内真题
+            </div>
+            <div class="text-area" contenteditable="true" style="
+                top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px;
+                width: 250px; text-align: center; font-size: 20px; 
+                font-weight: normal; color: #333;
+            ">
+                知识点三
+            </div>
+        </div>
+
+        <!-- Element: Bottom Right (4) -->
+        <div class="element-wrapper" id="el-dec-4">
+            <div class="controls">
+                <div class="control-btn delete" title="删除">✕</div>
+            </div>
+            <img src="./assets/JuZhongGouTu/4.png" alt="装饰4" draggable="false">
+            <div class="text-area" contenteditable="true" style="
+                top: 45%; left: 50%; transform: translate(-40%, -50%);
+                width: 180px; text-align: center; font-size: 28px; 
+                font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            ">
+                人物分析
+            </div>
+            <div class="text-area" contenteditable="true" style="
+                top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px;
+                width: 250px; text-align: center; font-size: 20px; 
+                font-weight: normal; color: #333;
+            ">
+                知识点四
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        (function () {
+            // --- State ---
+            const state = {
+                scale: 1,
+                selectedEl: null,
+                isDragging: false,
+                dragOffset: { x: 0, y: 0 },
+                zIndexCounter: 1000
+            };
+
+            const stage = document.getElementById('canvas-stage');
+
+            // --- Resize / Fit to Screen ---
+            function fitStage() {
+                const targetW = 1920;
+                const targetH = 1080;
+                const winW = window.innerWidth;
+                const winH = window.innerHeight;
+
+                const ratioW = winW / targetW;
+                const ratioH = winH / targetH;
+                state.scale = Math.min(ratioW, ratioH); // Maintain aspect ratio
+
+                stage.style.transform = `scale(${state.scale})`;
+            }
+            window.addEventListener('resize', fitStage);
+            fitStage();
+
+            // --- Interaction Logic ---
+
+            // 1. Selection & Drag Start
+            stage.addEventListener('mousedown', (e) => {
+                const wrapper = e.target.closest('.element-wrapper');
+                const deleteBtn = e.target.closest('.delete');
+                const textArea = e.target.closest('.text-area');
+
+                // If clicking Delete button
+                if (deleteBtn && wrapper) {
+                    wrapper.remove();
+                    return;
+                }
+
+                // If Clicking Text Area -> Focus text, maybe select wrapper but don't drag
+                if (textArea) {
+                    if (wrapper) selectElement(wrapper);
+                    return;
+                }
+
+                // If Clicking Wrapper (Image/Container)
+                if (wrapper) {
+                    selectElement(wrapper);
+                    state.isDragging = true;
+
+                    // Normalize position logic:
+                    // We need to calculate offset relative to the unscaled stage coordinate system
+                    const wrapperRect = wrapper.getBoundingClientRect();
+                    const stageRect = stage.getBoundingClientRect();
+
+                    // Mouse Pos in Stage Coords (0-1920, 0-1080)
+                    // (ClientX - StageLeft) / Scale
+                    const mouseX = (e.clientX - stageRect.left) / state.scale;
+                    const mouseY = (e.clientY - stageRect.top) / state.scale;
+
+                    // Element Pos in Stage Coords
+                    // We need to sync the current style.left/top with actual visual position if transforms are present
+                    // For simplicity, we are going to convert everything to absolute pixel left/top on first drag
+
+                    // Get current computed left/top (resolved to pixels relative to parent)
+                    // Note: wrapper.offsetLeft gives pixels relative to parent
+                    // But if there's a transform like translate(-50%), offsetLeft is the stored 'left', not visual left edge.
+                    // Visual Edge = offsetLeft + transformX
+
+                    // Let's rely on getBoundingClientRect relative to Stage to capture "Visual Top/Left"
+                    // VisualLeft = (wrapperRect.left - stageRect.left) / scale
+                    const visualLeft = (wrapperRect.left - stageRect.left) / state.scale;
+                    const visualTop = (wrapperRect.top - stageRect.top) / state.scale;
+
+                    // Offset = Mouse - VisualPos
+                    state.dragOffset.x = mouseX - visualLeft;
+                    state.dragOffset.y = mouseY - visualTop;
+
+                    // Remove CSS classes/transforms that auto-center, lock to absolute pixels now
+                    // We will set style.left / style.top matching the visual position
+                    wrapper.style.transform = 'none';
+                    wrapper.style.left = visualLeft + 'px';
+                    wrapper.style.top = visualTop + 'px';
+                    wrapper.style.bottom = 'auto';
+                    wrapper.style.right = 'auto';
+
+                    e.preventDefault(); // Stop text selection etc
+                } else {
+                    // Clicked on background
+                    deselectAll();
+                }
+            });
+
+            // 2. Drag Move
+            window.addEventListener('mousemove', (e) => {
+                if (!state.isDragging || !state.selectedEl) return;
+
+                const stageRect = stage.getBoundingClientRect();
+                const mouseX = (e.clientX - stageRect.left) / state.scale;
+                const mouseY = (e.clientY - stageRect.top) / state.scale;
+
+                const newLeft = mouseX - state.dragOffset.x;
+                const newTop = mouseY - state.dragOffset.y;
+
+                state.selectedEl.style.left = newLeft + 'px';
+                state.selectedEl.style.top = newTop + 'px';
+            });
+
+            // 3. Drag End
+            window.addEventListener('mouseup', () => {
+                state.isDragging = false;
+            });
+
+            // 4. Keyboard Delete
+            window.addEventListener('keydown', (e) => {
+                if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedEl) {
+                    // Don't delete if editing text
+                    if (document.activeElement.isContentEditable) return;
+
+                    state.selectedEl.remove();
+                    state.selectedEl = null;
+                }
+            });
+
+            // --- Helpers ---
+            function selectElement(el) {
+                if (state.selectedEl && state.selectedEl !== el) {
+                    state.selectedEl.classList.remove('selected');
+                }
+                state.selectedEl = el;
+                el.classList.add('selected');
+
+                // Bring to front logic (simple stack)
+                el.style.zIndex = ++state.zIndexCounter;
+            }
+
+            function deselectAll() {
+                if (state.selectedEl) {
+                    state.selectedEl.classList.remove('selected');
+                    state.selectedEl = null;
+                }
+            }
+
+        })();
+    </script>
+</body>
+
+</html>

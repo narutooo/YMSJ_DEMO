@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, user-scalable=no">
+    <title>下节预告 - 修正映射版</title>
+    <style>
+        /* --- Reset & Base --- */
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            background-color: #333;
+            user-select: none;
+        }
+
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            /* Use the classroom image as background */
+            background: url('https://static0.xesimg.com/story-buddy/AiTool/20251216/0be4b77f-a02e-410d-9248-7b6ee9c7dcf9.png') no-repeat center center;
+            background-size: cover;
+            overflow: hidden;
+        }
+
+        /* Overlay to tint the background slightly warm/blur if needed to match reference mood? 
+           Adding a warm overlay to match the reference's color tone */
+        #app::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 230, 200, 0.3);
+            pointer-events: none;
+        }
+
+        /* --- Interactive System --- */
+        .draggable {
+            position: absolute;
+            cursor: move;
+            transform-origin: top left;
+            transform: scale(1);
+            will-change: transform, left, top;
+        }
+
+        .draggable.active-edit {
+            outline: 2px dashed rgba(0, 0, 0, 0.4);
+            z-index: 10000;
+        }
+
+        /* Resize Handle */
+        .resize-handle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border: 3px solid #333;
+            border-radius: 50%;
+            bottom: -12px;
+            right: -12px;
+            cursor: nwse-resize;
+            z-index: 99999;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .draggable:hover .resize-handle,
+        .draggable.active-edit .resize-handle {
+            opacity: 1;
+        }
+
+        /* Image Display */
+        .comp-img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            object-fit: contain;
+        }
+
+        /* Text Overlay */
+        .comp-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .comp-overlay>* {
+            pointer-events: auto;
+        }
+
+        [contenteditable="true"] {
+            outline: none;
+            cursor: text;
+        }
+
+        [contenteditable="true"]:focus {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        /* --- Component Layout (Strict Dimensions) --- */
+
+        /* 1. TV Frame (Yellow Box) */
+        #comp-tv {
+            left: 360px;
+            top: 180px;
+            width: 1200px;
+            height: 850px;
+        }
+
+        /* 2. Badge (Sidebar) - CSS Rendered */
+        /* Since the provided image for this was actually the Background, we draw this manually */
+        #comp-badge {
+            left: 50px;
+            top: 50px;
+            width: 110px;
+            height: 280px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .badge-visual {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #ff7a7a, #ff4d4f);
+            border: 4px solid #fff;
+            border-radius: 55px;
+            box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .badge-visual .text {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            color: white;
+            font-size: 34px;
+            font-weight: 800;
+            letter-spacing: 6px;
+            cursor: text;
+        }
+
+        /* 3. Title (Top Header) */
+        #comp-title {
+            left: 710px;
+            top: 60px;
+            width: 500px;
+            height: 180px;
+        }
+
+        /* 4. Red Tag (Center) */
+        #comp-tag {
+            left: 790px;
+            top: 290px;
+            width: 340px;
+            height: 100px;
+        }
+
+        #comp-tag .text {
+            color: white;
+            font-size: 30px;
+            font-weight: bold;
+            padding-left: 10px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 5. Green Tape (Bottom) */
+        #comp-tape {
+            left: 550px;
+            top: 660px;
+            width: 820px;
+            height: 140px;
+        }
+
+        #comp-tape .text {
+            color: white;
+            font-size: 28px;
+            text-align: center;
+            width: 80%;
+            line-height: 1.4;
+        }
+
+        /* 6. Main Text */
+        #comp-main-text {
+            left: 560px;
+            top: 420px;
+            width: 800px;
+        }
+
+        #comp-main-text p {
+            font-size: 44px;
+            color: #333;
+            text-align: center;
+            font-weight: 500;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+
+        <!-- LAYER: CONTAINER (Z:100) -->
+
+        <!-- TV Frame (Yellow Box) -->
+        <!-- CORRECTED: d45373bb... -->
+        <div class="draggable" id="comp-tv" data-layer-type="container">
+            <img src="https://static0.xesimg.com/story-buddy/AiTool/20251216/d45373bb-9ea9-46dd-aec8-d3528be23f70.png"
+                class="comp-img">
+            <div class="resize-handle"></div>
+        </div>
+
+        <!-- LAYER: CONTENT (Z:600) -->
+
+        <!-- Title ("下节预告") -->
+        <!-- CORRECTED: 6e8c101f... (Was wrongly used for Tape) -->
+        <div class="draggable" id="comp-title" data-layer-type="content">
+            <img src="https://static0.xesimg.com/story-buddy/AiTool/20251216/6e8c101f-a08d-4ad8-ac49-b6ebbabfa572.png"
+                class="comp-img">
+            <div class="resize-handle"></div>
+        </div>
+
+        <!-- Green Tape (Bottom) -->
+        <!-- CORRECTED: 1c69f4b9... (Was wrongly used for Badge) -->
+        <div class="draggable" id="comp-tape" data-layer-type="content">
+            <img src="https://static0.xesimg.com/story-buddy/AiTool/20251216/1c69f4b9-84b7-4c53-8c0f-8b4f6ab81ced.png"
+                class="comp-img">
+            <div class="comp-overlay">
+                <div class="text" contenteditable="true">快打开《西游记》，阅读接下来的内容吧！</div>
+            </div>
+            <div class="resize-handle"></div>
+        </div>
+
+        <!-- Red Tag (Center) -->
+        <!-- KEPT: 0bc17a44... (Looks correct) -->
+        <div class="draggable" id="comp-tag" data-layer-type="content">
+            <img src="https://static0.xesimg.com/story-buddy/AiTool/20251216/0bc17a44-48fb-4097-ad8c-9e66e20bb23f.png"
+                class="comp-img">
+            <div class="comp-overlay">
+                <div class="text" contenteditable="true">精彩抢先看</div>
+            </div>
+            <div class="resize-handle"></div>
+        </div>
+
+        <!-- Badge (Sidebar) - CSS Fallback -->
+        <!-- We used the 5th image (0be4...) as Background, so we draw this -->
+        <div class="draggable" id="comp-badge" data-layer-type="content">
+            <div class="badge-visual">
+                <div class="text" contenteditable="true">温故知新</div>
+            </div>
+            <div class="resize-handle"></div>
+        </div>
+
+        <!-- Main Text -->
+        <div class="draggable" id="comp-main-text" data-layer-type="content">
+            <div style="padding: 10px;">
+                <p contenteditable="true">个性各不相同、脾气也差异很大的师徒四人之间还会发生什么矛盾呢？</p>
+            </div>
+            <div class="resize-handle"></div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const LAYERS = {
+                container: { min: 100, max: 499, current: 100 },
+                content: { min: 600, max: 999, current: 600 }
+            };
+
+            let activeDrag = null;
+            let activeResize = null;
+            let startX = 0, startY = 0;
+            let initialLeft = 0, initialTop = 0;
+            let initialScale = 1;
+
+            const draggables = document.querySelectorAll('.draggable');
+
+            draggables.forEach(el => {
+                el.dataset.scale = 1;
+                const type = el.dataset.layerType || 'content';
+                el.style.zIndex = LAYERS[type].base || LAYERS[type].current;
+
+                el.addEventListener('mousedown', (e) => {
+                    if (e.target.classList.contains('resize-handle')) {
+                        startResize(e, el);
+                        return;
+                    }
+                    if (e.target.isContentEditable) return;
+                    startDrag(e, el);
+                });
+
+                el.addEventListener('wheel', (e) => {
+                    if (e.altKey) {
+                        e.preventDefault();
+                        const s = parseFloat(el.dataset.scale);
+                        const d = e.deltaY * -0.001;
+                        applyScale(el, s + d);
+                    }
+                });
+            });
+
+            function startDrag(e, el) {
+                e.preventDefault();
+                activeDrag = el;
+                el.classList.add('active-edit');
+                startX = e.clientX;
+                startY = e.clientY;
+                const s = window.getComputedStyle(el);
+                initialLeft = parseFloat(s.left);
+                initialTop = parseFloat(s.top);
+
+                const type = el.dataset.layerType || 'content';
+                const layer = LAYERS[type];
+                layer.current++;
+                if (layer.current > layer.max) layer.current = layer.min;
+                el.style.zIndex = layer.current;
+            }
+
+            function startResize(e, el) {
+                e.preventDefault();
+                e.stopPropagation();
+                activeResize = el;
+                el.classList.add('active-edit');
+                startX = e.clientX;
+                startY = e.clientY;
+                initialScale = parseFloat(el.dataset.scale);
+            }
+
+            document.addEventListener('mousemove', (e) => {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                if (activeDrag) {
+                    activeDrag.style.left = (initialLeft + dx) + 'px';
+                    activeDrag.style.top = (initialTop + dy) + 'px';
+                }
+                if (activeResize) {
+                    const k = 0.002;
+                    applyScale(activeResize, initialScale + (dx + dy) * k);
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (activeDrag) {
+                    activeDrag.classList.remove('active-edit');
+                    activeDrag = null;
+                }
+                if (activeResize) {
+                    activeResize.classList.remove('active-edit');
+                    activeResize = null;
+                }
+            });
+
+            function applyScale(el, val) {
+                val = Math.max(0.2, Math.min(val, 5));
+                el.dataset.scale = val;
+                el.style.transform = `scale(${val})`;
+            }
+
+        });
+    </script>
+</body>
+
+</html>

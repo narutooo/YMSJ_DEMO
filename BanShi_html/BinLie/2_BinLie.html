@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互动排版生成器 - 明亮版</title>
+    <style>
+        /* --- 基础设置 --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #e0e0e0;
+            /* 画布外的背景也调亮一点，但保持对比 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Microsoft YaHei", "Heiti SC", sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- 1920x1080 画布 (明亮风格) --- */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background-color: #fff9c4;
+            /* 浅米黄底色 */
+            /* 明亮的暖色渐变：模拟清晨阳光或明亮墙面 */
+            background-image: linear-gradient(to bottom, #ffffff 0%, #fff1d6 50%, #ffe0b2 100%);
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.15);
+            /* 阴影变淡，更通透 */
+            transform-origin: center center;
+        }
+
+        /* --- 通用组件样式 --- */
+        .draggable-item {
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            transition: box-shadow 0.2s;
+        }
+
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+
+        .draggable-item.selected {
+            outline: 2px dashed #00aaff;
+            z-index: 9999 !important;
+        }
+
+        [contenteditable="true"]:focus {
+            outline: none;
+            cursor: text;
+        }
+
+        /* --- 缩放手柄 --- */
+        .resize-handle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 50%;
+            bottom: -12px;
+            right: -12px;
+            cursor: nwse-resize;
+            display: none;
+            z-index: 10001;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .draggable-item.selected .resize-handle {
+            display: block;
+        }
+
+        /* --- 删除按钮 --- */
+        .delete-btn {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background-color: #ff4d4f;
+            color: white;
+            border-radius: 50%;
+            top: -12px;
+            right: -12px;
+            text-align: center;
+            line-height: 22px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 10001;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .draggable-item.selected .delete-btn {
+            display: block;
+        }
+
+        /* =========================================
+           特定视觉元素 (保持原设计，但在亮背景下依然清晰)
+           ========================================= */
+
+        /* 1. 左上角标签 */
+        .tag-badge {
+            width: 60px;
+            height: 180px;
+            background: linear-gradient(to bottom, #ff6b6b, #ee5253);
+            /*稍微提亮一点红 */
+            border-radius: 0 0 30px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 4px 4px 15px rgba(255, 107, 107, 0.3);
+            /* 阴影带点颜色 */
+            z-index: 800;
+        }
+
+        .tag-text {
+            writing-mode: vertical-rl;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 2. 大标题 */
+        .main-title {
+            font-size: 80px;
+            font-weight: 900;
+            color: #fff;
+            /* 描边颜色加深一点以保证在亮背景下的对比度 */
+            -webkit-text-stroke: 3px #e65100;
+            text-shadow:
+                0px 3px 0px #e65100,
+                0px 6px 10px rgba(230, 81, 0, 0.3);
+            font-family: "Arial Black", "Heiti SC", sans-serif;
+            background: linear-gradient(to bottom, #fff 40%, #ffecb3 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            z-index: 800;
+            white-space: nowrap;
+        }
+
+        /* 3. 选项容器 (Card A & B) */
+        .option-card {
+            width: 600px;
+            height: 350px;
+            background-color: #ffffff;
+            border-radius: 30px;
+            /* 阴影更柔和，符合亮色环境 */
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08), inset 0 0 0 4px #ffe0b2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            box-sizing: border-box;
+            z-index: 500;
+        }
+
+        .card-text {
+            font-size: 36px;
+            line-height: 1.5;
+            color: #424242;
+            /* 深灰字体比纯黑更柔和 */
+            font-weight: bold;
+            text-align: left;
+        }
+
+        .highlight-red {
+            color: #ff5252;
+        }
+
+        /* 4. 选项徽章 */
+        .option-badge {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(to bottom, #ff8a80, #d32f2f);
+            border-radius: 50%;
+            border: 4px solid #fff;
+            box-shadow: 0 6px 10px rgba(211, 47, 47, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+            z-index: 600;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="draggable-item" style="top: 0; left: 0; width: 1920px; height: 1080px; z-index: 10;">
+            <div
+                style="width:100%; height:100%; background: radial-gradient(circle at 70% 20%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 40%); opacity: 0.6;">
+            </div>
+        </div>
+
+        <div class="draggable-item" style="top: 0; left: 80px; z-index: 800;">
+            <div class="tag-badge">
+                <div class="tag-text" contenteditable="true">单元作文</div>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable-item" style="top: 100px; left: 360px; z-index: 800;">
+            <div class="main-title" contenteditable="true">哪种引出回忆的方法比较好？</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable-item" style="top: 260px; left: 450px; z-index: 600;">
+            <div class="option-badge" contenteditable="true">A</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="draggable-item" style="top: 300px; left: 180px; z-index: 500;">
+            <div class="option-card">
+                <div class="card-text" contenteditable="true">
+                    田鼠妈妈想起来自己<br>去给小龙下安眠药了。
+                </div>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable-item" style="top: 260px; left: 1400px; z-index: 600;">
+            <div class="option-badge" contenteditable="true">B</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="draggable-item" style="top: 300px; left: 1100px; z-index: 500;">
+            <div class="option-card">
+                <div class="card-text" contenteditable="true">
+                    看到<span class="highlight-red">那件不小心沾上安眠药粉的斗篷</span>，田鼠妈妈的记忆就像放映机一样启动了。那<span
+                        class="highlight-red">惊险</span>的画面在回忆里越来越清晰……
+                </div>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * JS Interaction Logic
+         * Implements: Drag, Resize (Scale), Edit, Delete, Undo/Redo
+         */
+
+        const app = document.getElementById('app');
+        const historyStack = [];
+        let currentStep = -1;
+        const MAX_HISTORY = 20;
+
+        // 1. Scale App to fit window
+        function fitScreen() {
+            const scaleX = window.innerWidth / 1920;
+            const scaleY = window.innerHeight / 1080;
+            const scale = Math.min(scaleX, scaleY);
+            // app.style.transform = `scale(${scale})`; // Optional: uncomment for auto-fit
+        }
+        window.addEventListener('resize', fitScreen);
+        fitScreen();
+
+        // 2. History System
+        function saveState() {
+            if (currentStep < historyStack.length - 1) {
+                historyStack.splice(currentStep + 1);
+            }
+            const state = app.innerHTML;
+            historyStack.push(state);
+
+            if (historyStack.length > MAX_HISTORY) {
+                historyStack.shift();
+            } else {
+                currentStep++;
+            }
+        }
+
+        function undo() {
+            if (currentStep > 0) {
+                currentStep--;
+                restoreState(historyStack[currentStep]);
+            }
+        }
+
+        function restoreState(html) {
+            app.innerHTML = html;
+        }
+
+        saveState();
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selected = document.querySelector('.draggable-item.selected');
+                if (selected && document.activeElement.getAttribute('contenteditable') !== 'true') {
+                    selected.remove();
+                    saveState();
+                }
+            }
+        });
+
+        // 3. Interaction Handling
+        let activeDragItem = null;
+        let activeResizeItem = null;
+        let startX, startY;
+        let initialLeft, initialTop;
+        let initialScale = 1;
+
+        function getScale(element) {
+            const style = window.getComputedStyle(element);
+            const matrix = new WebKitCSSMatrix(style.transform);
+            return matrix.a;
+        }
+
+        app.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                const item = e.target.closest('.draggable-item');
+                if (item) {
+                    item.remove();
+                    saveState();
+                }
+                return;
+            }
+
+            if (e.target.classList.contains('resize-handle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                activeResizeItem = e.target.closest('.draggable-item');
+                startX = e.clientX;
+                initialScale = getScale(activeResizeItem);
+                return;
+            }
+
+            const item = e.target.closest('.draggable-item');
+
+            if (!e.ctrlKey) {
+                document.querySelectorAll('.draggable-item.selected').forEach(el => {
+                    if (el !== item) el.classList.remove('selected');
+                });
+            }
+
+            if (item) {
+                if (e.target.getAttribute('contenteditable') === 'true') {
+                    item.classList.add('selected');
+                    return;
+                }
+
+                activeDragItem = item;
+                item.classList.add('selected');
+
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = item.offsetLeft;
+                initialTop = item.offsetTop;
+
+                e.preventDefault();
+            } else {
+                document.querySelectorAll('.draggable-item.selected').forEach(el => el.classList.remove('selected'));
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (activeDragItem) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                activeDragItem.style.left = `${initialLeft + dx}px`;
+                activeDragItem.style.top = `${initialTop + dy}px`;
+            }
+
+            if (activeResizeItem) {
+                const dx = e.clientX - startX;
+                const newScale = Math.max(0.1, initialScale + dx * 0.002);
+                activeResizeItem.style.transform = `scale(${newScale})`;
+                activeResizeItem.style.transformOrigin = 'top left';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (activeDragItem || activeResizeItem) {
+                saveState();
+            }
+            activeDragItem = null;
+            activeResizeItem = null;
+        });
+
+        app.addEventListener('focusout', (e) => {
+            if (e.target.getAttribute('contenteditable') === 'true') {
+                saveState();
+            }
+        });
+
+    </script>
+</body>
+
+</html>

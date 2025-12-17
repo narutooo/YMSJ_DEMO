@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>西游记 - 交互式课件还原</title>
+    <style>
+        /* --- 0. 全局设置 --- */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            /* 画布外的深色背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- 1. 主画布 #app (1920x1080) --- */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            /* 模拟参考图背景：金黄色调 + 中间瀑布 + 底部山峦 */
+            background:
+                radial-gradient(circle at 50% 30%, rgba(255, 255, 220, 0.8) 0%, rgba(255, 215, 0, 0) 50%),
+                linear-gradient(to bottom, #fff59d 0%, #ffcc80 40%, #ffab91 100%);
+            overflow: hidden;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 0.8);
+            transform-origin: center center;
+        }
+
+        /* 背景装饰层：瀑布 */
+        .waterfall {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 100%;
+            background: linear-gradient(to bottom, #e0f7fa 0%, #4fc3f7 100%);
+            opacity: 0.6;
+            filter: blur(20px);
+            z-index: 10;
+            pointer-events: none;
+            /* 背景装饰不可交互 */
+        }
+
+        /* 背景装饰层：模拟左右两侧的深色植物剪影 */
+        .decor-bamboo-left {
+            position: absolute;
+            bottom: -100px;
+            left: -50px;
+            width: 500px;
+            height: 800px;
+            background: #2e3d30;
+            border-radius: 0 100% 0 0;
+            transform: rotate(10deg);
+            z-index: 20;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        .decor-bamboo-right {
+            position: absolute;
+            bottom: -50px;
+            right: -100px;
+            width: 400px;
+            height: 900px;
+            background: #1b2e1b;
+            border-radius: 100% 0 0 0;
+            transform: rotate(-15deg);
+            z-index: 20;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        /* --- 2. 交互组件通用样式 --- */
+        .component {
+            position: absolute;
+            cursor: grab;
+            transform-origin: top left;
+            /* 缩放基点 */
+            box-sizing: border-box;
+            transition: outline 0.1s;
+        }
+
+        .component:active {
+            cursor: grabbing;
+        }
+
+        /* 选中状态 */
+        .component.active {
+            outline: 3px dashed #00b0ff;
+            /* 选中时不改变 z-index，防止层级跳动 */
+        }
+
+        /* --- 3. 具体组件样式 --- */
+
+        /* A. 左上角红色侧边徽章 */
+        .badge-sidebar {
+            width: 90px;
+            height: 280px;
+            background: linear-gradient(to bottom, #ff5252, #d32f2f);
+            border-radius: 0 0 45px 45px;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+            border: 3px solid #ffcdd2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-top: 20px;
+        }
+
+        .badge-text {
+            writing-mode: vertical-rl;
+            color: white;
+            font-size: 38px;
+            font-weight: bold;
+            letter-spacing: 10px;
+            font-family: "KaiTi", "楷体", serif;
+            text-shadow: 2px 2px 2px rgba(163, 0, 0, 0.5);
+            outline: none;
+        }
+
+        /* B. 中央白色磨砂内容框 */
+        .main-container {
+            width: 1400px;
+            height: 700px;
+            background: rgba(255, 255, 255, 0.65);
+            /* 半透明白 */
+            backdrop-filter: blur(10px);
+            /* 磨砂玻璃效果 */
+            border-radius: 40px;
+            padding: 60px 80px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        /* 内容列表行 */
+        .list-row {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        /* 红色序号圆圈 */
+        .number-circle {
+            flex-shrink: 0;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ff5252, #c62828);
+            border-radius: 50%;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 30px;
+            margin-top: 5px;
+            box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.2);
+            font-family: Arial, sans-serif;
+        }
+
+        /* 文本内容 */
+        .text-content {
+            font-size: 34px;
+            color: #3e2723;
+            line-height: 1.6;
+            font-weight: 600;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+            outline: none;
+            flex-grow: 1;
+        }
+
+        /* C. 右上角Logo模拟 */
+        .logo-placeholder {
+            width: 200px;
+            height: 60px;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            font-size: 24px;
+            color: #fff;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        /* --- 4. 交互控件 (Resize Handle & Delete Btn) --- */
+        .resize-handle {
+            position: absolute;
+            bottom: -10px;
+            right: -10px;
+            width: 24px;
+            height: 24px;
+            background-color: #fff;
+            border: 2px solid #00b0ff;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 9999;
+            /* 确保手柄在最上层 */
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 32px;
+            height: 32px;
+            background-color: #ff1744;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 20px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 9999;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 仅在选中或悬停时显示控件 */
+        .component:hover .resize-handle,
+        .component.active .resize-handle,
+        .component:hover .delete-btn,
+        .component.active .delete-btn {
+            opacity: 1;
+        }
+
+        /* --- 5. UI 提示 --- */
+        #ui-overlay {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 10000;
+            pointer-events: none;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="ui-overlay">
+        <strong>操作指南:</strong><br>
+        🖱️ 拖拽组件移动<br>
+        ↘️ 拖拽右下角白点缩放<br>
+        📝 点击文字直接编辑<br>
+        ❌ 选中后按 Delete 删除<br>
+        ↩️ Ctrl + Z 撤销操作
+    </div>
+
+    <div id="app">
+        <div class="waterfall"></div>
+        <div class="decor-bamboo-left"></div>
+        <div class="decor-bamboo-right"></div>
+
+        <div class="component" style="top: 40px; left: 60px; width: 90px; height: 280px; z-index: 500;">
+            <div class="badge-sidebar">
+                <div class="badge-text" contenteditable="true">开卷有益</div>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component" style="top: 150px; left: 260px; width: 1400px; height: 780px; z-index: 100;">
+            <div class="main-container">
+                <div class="list-row">
+                    <div class="number-circle" contenteditable="true">1</div>
+                    <div class="text-content" contenteditable="true">
+                        掌握《西游记》的重要文学常识，拓展《西游记》的成书过程，拓展玄奘取经的历史故事，感受历史与小说的不同
+                    </div>
+                </div>
+                <div class="list-row">
+                    <div class="number-circle" contenteditable="true">2</div>
+                    <div class="text-content" contenteditable="true">
+                        梳理孙悟空从出世到被压五指山的故事情节，梳理唐僧收服三个徒弟的故事情节，感受师徒四人的形象
+                    </div>
+                </div>
+                <div class="list-row">
+                    <div class="number-circle" contenteditable="true">3</div>
+                    <div class="text-content" contenteditable="true">
+                        联系自身，深入认识孙悟空的自由个性，初步谈谈团队合作对成长的意义
+                    </div>
+                </div>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component" style="top: 30px; right: 50px; width: 200px; height: 60px; z-index: 600;">
+            <div class="logo-placeholder" contenteditable="true">
+                学而思网校
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * Generic Interactive Logic
+         * Implements: Drag, Resize (Scale), Delete, History (Undo)
+         */
+
+        const app = document.getElementById('app');
+        const historyStack = [];
+        const MAX_HISTORY = 20;
+
+        // --- 1. 画布自适应 (Fit Screen) ---
+        function fitScreen() {
+            const scaleX = window.innerWidth / 1920;
+            const scaleY = window.innerHeight / 1080;
+            const scale = Math.min(scaleX, scaleY, 1);
+            app.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', fitScreen);
+        fitScreen();
+
+        // --- 2. 历史记录系统 (History System) ---
+        function saveState() {
+            const currentHTML = app.innerHTML;
+            if (historyStack.length > 0 && historyStack[historyStack.length - 1] === currentHTML) return;
+            historyStack.push(currentHTML);
+            if (historyStack.length > MAX_HISTORY) historyStack.shift();
+        }
+        // 初始化保存
+        saveState();
+
+        function undo() {
+            if (historyStack.length <= 1) return;
+            historyStack.pop();
+            const previousState = historyStack[historyStack.length - 1];
+            app.innerHTML = previousState;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+        });
+
+        // --- 3. 交互核心 (Event Delegation) ---
+
+        let activeEl = null;
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY;
+        let initialLeft, initialTop;
+        // Resize vars
+        let initialDist = 0;
+
+        // 获取元素的 transform scale 值
+        function getScale(el) {
+            const style = window.getComputedStyle(el);
+            const matrix = new WebKitCSSMatrix(style.transform);
+            return matrix.a; // scaleX
+        }
+
+        // Mousedown 处理
+        app.addEventListener('mousedown', (e) => {
+            // A. 删除按钮
+            if (e.target.classList.contains('delete-btn')) {
+                const component = e.target.closest('.component');
+                if (component) {
+                    component.remove();
+                    saveState();
+                }
+                return;
+            }
+
+            // B. 缩放手柄
+            if (e.target.classList.contains('resize-handle')) {
+                e.preventDefault();
+                isResizing = true;
+                activeEl = e.target.closest('.component');
+                startX = e.clientX;
+                activeEl.dataset.startScale = getScale(activeEl);
+                activeEl.dataset.initialWidth = activeEl.offsetWidth;
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+                return;
+            }
+
+            // C. 拖拽组件
+            const component = e.target.closest('.component');
+            if (component) {
+                // 如果是点击了可编辑文字，不触发拖拽
+                if (e.target.isContentEditable) {
+                    // 仅设为 active 方便删除
+                    document.querySelectorAll('.component').forEach(el => el.classList.remove('active'));
+                    component.classList.add('active');
+                    return;
+                }
+
+                document.querySelectorAll('.component').forEach(el => el.classList.remove('active'));
+                component.classList.add('active');
+
+                isDragging = true;
+                activeEl = component;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = component.offsetLeft;
+                initialTop = component.offsetTop;
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            } else {
+                // 点击空白处
+                document.querySelectorAll('.component').forEach(el => el.classList.remove('active'));
+            }
+        });
+
+        function onMouseMove(e) {
+            if (!activeEl) return;
+
+            // 获取画布当前的缩放比例，修正鼠标位移
+            const appScale = new WebKitCSSMatrix(window.getComputedStyle(app).transform).a || 1;
+
+            if (isDragging) {
+                const dx = (e.clientX - startX) / appScale;
+                const dy = (e.clientY - startY) / appScale;
+                activeEl.style.left = `${initialLeft + dx}px`;
+                activeEl.style.top = `${initialTop + dy}px`;
+            } else if (isResizing) {
+                const dx = (e.clientX - startX) / appScale;
+                const initialW = parseFloat(activeEl.dataset.initialWidth);
+                const startScale = parseFloat(activeEl.dataset.startScale);
+
+                // 简单缩放逻辑: newScale = startScale + (moved_pixels / component_width)
+                const newScale = Math.max(0.2, startScale + (dx / initialW));
+                activeEl.style.transform = `scale(${newScale})`;
+            }
+        }
+
+        function onMouseUp() {
+            if (isDragging || isResizing) {
+                saveState();
+            }
+            isDragging = false;
+            isResizing = false;
+            activeEl = null;
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        }
+
+        // --- 4. 键盘删除 (Delete) ---
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (document.activeElement.isContentEditable) return; // 编辑文字时不删除
+
+                const activeComponent = document.querySelector('.component.active');
+                if (activeComponent) {
+                    activeComponent.remove();
+                    saveState();
+                }
+            }
+        });
+
+        // --- 5. 文本编辑监听 (Blur Save) ---
+        app.addEventListener('focusout', (e) => {
+            if (e.target.isContentEditable) {
+                saveState();
+            }
+        });
+
+    </script>
+</body>
+
+</html>

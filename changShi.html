@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0, user-scalable=no">
+    <title>常识 - 阅读理解</title>
+    <style>
+        :root {
+            --safe-width: 1480px;
+            --safe-height: 920px;
+            --forbidden-width: 440px;
+            --primary-red: #ff4d4f;
+            --primary-pink: #ff9eb5;
+            --card-radius: 40px;
+            --text-color: #592d2d;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            background-color: #333;
+            /* Fallback */
+            user-select: none;
+            /* Prevent accidental text selection while dragging keys */
+        }
+
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background-color: #f0f0f0;
+        }
+
+        /* Layer 0: Background */
+        .bg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background-image: url('assets/demo2/bg.jpeg');
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Layer 1: Safe Zone */
+        #safe-zone {
+            position: absolute;
+            top: 80px;
+            left: 0px;
+            width: var(--safe-width);
+            height: var(--safe-height);
+            z-index: 10;
+            /* border: 2px dashed rgba(0, 255, 0, 0.3); Debug: Safe Zone Boundary */
+        }
+
+        /* Debug: Forbidden Zone */
+        .forbidden-zone {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: var(--forbidden-width);
+            height: 100%;
+            background-color: rgba(255, 0, 0, 0.1);
+            /* Slight red tint to indicate forbidden */
+            z-index: 5;
+            pointer-events: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: rgba(255, 0, 0, 0.5);
+            font-size: 24px;
+            font-weight: bold;
+            writing-mode: vertical-rl;
+        }
+
+        /* Draggable Class */
+        .draggable {
+            position: absolute;
+            cursor: grab;
+            transition: box-shadow 0.2s;
+        }
+
+        .draggable:active {
+            cursor: grabbing;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            /* Bring to front when dragging */
+        }
+
+        /* Component: Main Content Card */
+        .content-card-wrapper {
+            top: 100px;
+            left: 100px;
+            width: 1000px;
+            /* Adjust based on asset */
+        }
+
+        .ui-box-bg {
+            width: 100%;
+            display: block;
+            pointer-events: none;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.15));
+        }
+
+        /* Card Internals Container - Relative to the wrapper */
+        .card-internals {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 80px 60px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Header Badges */
+        .header-badges {
+            position: absolute;
+            top: -40px;
+            /* Pop out of the box */
+            left: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .title-badge img {
+            height: 80px;
+            pointer-events: none;
+        }
+
+        /* Text Styles */
+        .text-content {
+            font-size: 32px;
+            line-height: 1.8;
+            color: var(--text-color);
+            text-align: justify;
+            outline: none;
+            /* Remove focus outline */
+            margin-top: 20px;
+        }
+
+        ruby {
+            ruby-position: over;
+        }
+
+        rt {
+            font-size: 0.5em;
+            color: #666;
+            font-weight: normal;
+        }
+
+        /* Generic Props (Element 1, 2, 3) */
+        .prop-element-1 {
+            width: 150px;
+            top: 20px;
+            right: 20px;
+            /* Top right corner of safe zone */
+        }
+
+        .prop-element-1 img {
+            width: 100%;
+            display: block;
+            pointer-events: none;
+        }
+
+        .prop-element-2 {
+            width: 200px;
+            bottom: 50px;
+            right: 200px;
+        }
+
+        .prop-element-2 img {
+            width: 100%;
+            display: block;
+            pointer-events: none;
+        }
+
+        .prop-element-3 {
+            width: 120px;
+            top: 200px;
+            right: 50px;
+        }
+
+        .prop-element-3 img {
+            width: 100%;
+            display: block;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <!-- Layer 0: Full Screen Background -->
+        <div class="bg-layer"></div>
+
+        <!-- Debug Layer -->
+        <div class="forbidden-zone">
+            NO-INTERACTION ZONE
+        </div>
+
+        <!-- Layer 1: Content Safe Zone (1480x920) -->
+        <div id="safe-zone">
+
+            <!-- Main Content Card -->
+            <div class="draggable content-card-wrapper">
+                <!-- Badges attached to card -->
+                <div class="header-badges">
+                    <div class="title-badge"><img src="assets/demo2/title.png" alt="Title"></div>
+                </div>
+
+                <img src="assets/demo2/box.png" alt="Box Background" class="ui-box-bg">
+
+                <div class="card-internals">
+                    <div class="text-content" contenteditable="true">
+                        <p>
+                            小猫仔仔细一看，呀，小狗的一只脚上划了个大口子，正流血呢！小猫赶紧把自己脖子上的<ruby>缎<rt>duàn</rt>
+                                </ruby>带解下来，把小狗受伤的脚包上。小猫包得很用心，<ruby>血<rt>xiě</rt></ruby>一点儿也不流了。
+                        </p>
+                        <p>
+                            可是小狗还是站不起来。小狗躺在那儿，闭着眼睛<ruby>喘<rt>chuǎn</rt></ruby>气。
+                        </p>
+                        <p>怎么办呢？</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Props / Elements -->
+            <div class="draggable prop-element-1">
+                <img src="assets/demo2/element1.png" alt="Prop 1">
+            </div>
+
+            <div class="draggable prop-element-2">
+                <img src="assets/demo2/element2.png" alt="Prop 2">
+            </div>
+
+            <div class="draggable prop-element-3">
+                <img src="assets/demo2/element3.png" alt="Prop 3">
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const safeZone = document.getElementById("safe-zone");
+            const safeWidth = 1480;
+            const safeHeight = 920;
+
+            // --- Draggable Logic ---
+            const draggables = document.querySelectorAll(".draggable");
+            let activeElement = null;
+            let initialX = 0;
+            let initialY = 0;
+            let currentX = 0;
+            let currentY = 0;
+
+            draggables.forEach(el => {
+                el.addEventListener("mousedown", dragStart);
+            });
+
+            function dragStart(e) {
+                // Allow text selection inside contenteditable if clicking text
+                if (e.target.isContentEditable) return;
+
+                activeElement = e.currentTarget;
+
+                initialX = e.clientX - activeElement.offsetLeft;
+                initialY = e.clientY - activeElement.offsetTop;
+
+                document.addEventListener("mouseup", dragEnd);
+                document.addEventListener("mousemove", drag);
+            }
+
+            function drag(e) {
+                if (activeElement) {
+                    e.preventDefault();
+
+                    let newLeft = e.clientX - initialX;
+                    let newTop = e.clientY - initialY;
+
+                    // --- Boundary Check (The Core Requirement) ---
+                    const elWidth = activeElement.offsetWidth;
+                    const elHeight = activeElement.offsetHeight;
+
+                    // Right Boundary: Can't cross safeWidth
+                    if (newLeft + elWidth > safeWidth) {
+                        newLeft = safeWidth - elWidth;
+                    }
+                    // Left Boundary
+                    if (newLeft < 0) {
+                        newLeft = 0;
+                    }
+                    // Top Boundary
+                    if (newTop < 0) {
+                        newTop = 0;
+                    }
+                    // Bottom Boundary
+                    if (newTop + elHeight > safeHeight) {
+                        newTop = safeHeight - elHeight;
+                    }
+
+                    activeElement.style.left = newLeft + "px";
+                    activeElement.style.top = newTop + "px";
+                }
+            }
+
+            function dragEnd() {
+                activeElement = null;
+                document.removeEventListener("mouseup", dragEnd);
+                document.removeEventListener("mousemove", drag);
+            }
+
+            // --- Auto-Reflow Logic ---
+            draggables.forEach(el => {
+                checkAndReposition(el);
+            });
+
+            function checkAndReposition(el) {
+                // Images might not be loaded yet, so wait for load if it's an image container
+                const img = el.querySelector('img');
+                if (img && !img.complete) {
+                    img.onload = () => runCheck(el);
+                } else {
+                    runCheck(el);
+                }
+            }
+
+            function runCheck(el) {
+                const rect = el.getBoundingClientRect();
+                const parentRect = safeZone.getBoundingClientRect();
+
+                let relLeft = rect.left - parentRect.left;
+                let relTop = rect.top - parentRect.top;
+
+                let adjusted = false;
+
+                // Check Right
+                if (relLeft + el.offsetWidth > safeWidth) {
+                    relLeft = safeWidth - el.offsetWidth;
+                    adjusted = true;
+                }
+                // Check Left
+                if (relLeft < 0) { relLeft = 0; adjusted = true; }
+                // Check Top
+                if (relTop < 0) { relTop = 0; adjusted = true; }
+
+                if (adjusted) {
+                    el.style.left = relLeft + "px";
+                    el.style.top = relTop + "px";
+                    console.warn("Auto-Adjusted position for:", el);
+                }
+            }
+        });
+    </script>
+
+</body>
+
+</html>

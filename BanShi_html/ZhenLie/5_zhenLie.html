@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>整本书核心收获 - 海底两万里</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #333;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background: linear-gradient(180deg, #4facfe 0%, #00f2fe 10%, #00dbde 30%, #004e92 100%);
+            overflow: hidden;
+            margin: 0 auto;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Decorative Background Elements */
+        .bg-deco-circle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 10;
+        }
+
+        /* -----------------------
+           Interactive Compass
+           ----------------------- */
+        .draggable {
+            position: absolute;
+            cursor: move;
+            transition: outline 0.1s;
+        }
+
+        /* Selection styling */
+        .draggable.selected {
+            outline: 2px dashed #ff0000;
+            /* No z-index change on selection to preserve layering */
+        }
+
+        /* Resize Handle */
+        .resizable-handle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #999;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            z-index: 9999;
+            /* Handle always on top of its parent */
+            display: none;
+        }
+
+        .draggable:hover .resizable-handle,
+        .draggable.selected .resizable-handle {
+            display: block;
+        }
+
+        /* Delete Button */
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background-color: #ff4444;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            display: none;
+            z-index: 9999;
+            /* Button always on top of its parent */
+        }
+
+        .draggable.selected .delete-btn {
+            display: block;
+        }
+
+        .delete-btn:hover {
+            background-color: #cc0000;
+        }
+
+        [contenteditable]:focus {
+            outline: 2px dashed rgba(255, 255, 255, 0.5);
+            background-color: rgba(0, 0, 0, 0.05);
+            cursor: text;
+        }
+
+        /* -----------------------
+           Components
+           ----------------------- */
+
+        /* 1. Main Container - Z-index 100 range */
+        #main-panel {
+            width: 1540px;
+            height: 740px;
+            background: rgba(255, 255, 255, 0.92);
+            border-radius: 40px;
+            left: 190px;
+            top: 170px;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0, 50, 100, 0.3);
+            border: 4px solid rgba(255, 255, 255, 0.6);
+        }
+
+        /* 2. Side Tag - Z-index 500 range */
+        #side-tag {
+            left: 40px;
+            top: 40px;
+            width: 70px;
+            height: 220px;
+            background-color: #FA4B4B;
+            border-radius: 35px;
+            z-index: 500;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.2);
+            border: 2px solid white;
+        }
+
+        #side-tag span {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 6px;
+        }
+
+        /* 3. Main Title - Z-index 600 range */
+        #main-title-container {
+            left: 650px;
+            top: 70px;
+            z-index: 600;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 620px;
+            height: 120px;
+        }
+
+        #main-title {
+            font-size: 80px;
+            font-weight: 900;
+            color: #FF6B00;
+            background: linear-gradient(to bottom, #FF9A44, #FF4500);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0px 4px 0px #fff);
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        /* 4. Center Pill - Z-index 600 range */
+        #center-pill {
+            left: 760px;
+            top: 450px;
+            width: 400px;
+            height: 100px;
+            z-index: 600;
+            background: linear-gradient(to right, #FFB75E, #ED8F03);
+            border-radius: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 6px 0 #C97800, 0 15px 20px rgba(0, 0, 0, 0.2);
+            border: 4px solid rgba(255, 255, 255, 0.6);
+        }
+
+        #center-pill span {
+            font-size: 42px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 5. Content Groups - Z-index 500 range */
+        .content-group {
+            width: 600px;
+            height: 160px;
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cg-header {
+            display: flex;
+            align-items: center;
+        }
+
+        .cg-number {
+            font-family: "Times New Roman", Times, serif;
+            font-style: italic;
+            font-weight: 900;
+            font-size: 110px;
+            line-height: 1;
+            margin-right: 20px;
+            text-shadow: 2px 2px 0px white;
+        }
+
+        .cg-pill {
+            padding: 10px 30px;
+            border-radius: 30px;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .cg-text {
+            font-size: 30px;
+            color: #555;
+            font-weight: 600;
+            margin-top: 15px;
+            padding-left: 10px;
+        }
+
+        /* Colors */
+        #group-1 {
+            left: 280px;
+            top: 250px;
+        }
+
+        #group-1 .cg-number {
+            color: #FFA04D;
+        }
+
+        #group-1 .cg-pill {
+            background-color: #FFA04D;
+        }
+
+        #group-2 {
+            left: 1000px;
+            top: 250px;
+        }
+
+        #group-2 .cg-number {
+            color: #50B7DA;
+        }
+
+        #group-2 .cg-pill {
+            background-color: #50B7DA;
+        }
+
+        #group-3 {
+            left: 280px;
+            top: 600px;
+        }
+
+        #group-3 .cg-number {
+            color: #E84E38;
+        }
+
+        #group-3 .cg-pill {
+            background-color: #E84E38;
+        }
+
+        #group-4 {
+            left: 1000px;
+            top: 600px;
+        }
+
+        #group-4 .cg-number {
+            color: #2E8B37;
+        }
+
+        #group-4 .cg-pill {
+            background-color: #2E8B37;
+        }
+
+        /* Logo - Z-index 600 range */
+        #logo {
+            left: 1650px;
+            top: 40px;
+            width: 200px;
+            height: 50px;
+            font-size: 28px;
+            color: white;
+            font-weight: bold;
+            z-index: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <!-- Decors -->
+        <div class="draggable bg-deco-circle"
+            style="width: 300px; height: 300px; left: 100px; top: -50px; background: #FFD700; opacity: 0.2; filter: blur(40px);">
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <div class="draggable bg-deco-circle"
+            style="width: 500px; height: 500px; left: 1500px; top: 700px; background: #00008B; opacity: 0.4; filter: blur(60px);">
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Main Panel (Bottom Layer Container) -->
+        <div id="main-panel" class="draggable">
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Text Components (Upper Layer) -->
+
+        <!-- Title -->
+        <div id="main-title-container" class="draggable">
+            <h1 id="main-title" contenteditable="true">整本书核心收获</h1>
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Logo -->
+        <div id="logo" class="draggable">
+            <span contenteditable="true">学而思网校</span>
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Side Tag -->
+        <div id="side-tag" class="draggable">
+            <span contenteditable="true">核心收获</span>
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Center Pill -->
+        <div id="center-pill" class="draggable">
+            <span contenteditable="true">海底两万里</span>
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Group 1 -->
+        <div id="group-1" class="draggable content-group">
+            <div class="cg-header">
+                <div class="cg-number">1.</div>
+                <div class="cg-pill" contenteditable="true">阅读积累</div>
+            </div>
+            <div class="cg-text" contenteditable="true">【科普】凡尔纳的前瞻性</div>
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Group 2 -->
+        <div id="group-2" class="draggable content-group">
+            <div class="cg-header">
+                <div class="cg-number">2.</div>
+                <div class="cg-pill" contenteditable="true">阅读方法</div>
+            </div>
+            <div class="cg-text" contenteditable="true">【整合】整合信息完成图纸</div>
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Group 3 -->
+        <div id="group-3" class="draggable content-group">
+            <div class="cg-header">
+                <div class="cg-number">3.</div>
+                <div class="cg-pill" contenteditable="true">校内真题</div>
+            </div>
+            <div class="cg-text" contenteditable="true">【说明】说明方法辨析题</div>
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+        <!-- Group 4 -->
+        <div id="group-4" class="draggable content-group">
+            <div class="cg-header">
+                <div class="cg-number">4.</div>
+                <div class="cg-pill" contenteditable="true">单元作文</div>
+            </div>
+            <div class="cg-text" contenteditable="true">【想象文】货比三家法<br>《我的奇思妙想》</div>
+            <div class="delete-btn">×</div>
+            <div class="resizable-handle"></div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = document.getElementById('app');
+            let selectedElement = null;
+
+            // --- Selection Logic ---
+            function selectElement(el) {
+                // Deselect previous
+                if (selectedElement && selectedElement !== el) {
+                    selectedElement.classList.remove('selected');
+                }
+
+                selectedElement = el;
+                el.classList.add('selected');
+
+                // STRICT LAYERING enforces no z-index changes here.
+            }
+
+            function deselectAll() {
+                if (selectedElement) {
+                    selectedElement.classList.remove('selected');
+                    selectedElement = null;
+                }
+            }
+
+            // Click outside to deselect
+            app.addEventListener('mousedown', (e) => {
+                if (e.target.id === 'app') {
+                    deselectAll();
+                }
+            });
+
+            // --- Deletion Logic ---
+            // 1. Delete Key
+            document.addEventListener('keydown', (e) => {
+                if (selectedElement) {
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                        // Don't delete if editing text in contenteditable
+                        const isEditing = document.activeElement && document.activeElement.isContentEditable;
+                        if (!isEditing) {
+                            selectedElement.remove();
+                            selectedElement = null;
+                        }
+                    }
+                }
+            });
+
+            // 2. Click Delete Button
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('mousedown', (e) => {
+                    e.stopPropagation(); // prevent drag start
+                    const parent = btn.parentElement;
+                    parent.remove();
+                    if (selectedElement === parent) selectedElement = null;
+                });
+            });
+
+
+            // --- Drag & Resize Logic ---
+            const draggables = document.querySelectorAll('.draggable');
+
+            draggables.forEach(el => {
+                let isDragging = false;
+                let startX, startY, initialLeft, initialTop;
+
+                const handle = el.querySelector('.resizable-handle');
+                let isResizing = false;
+                let initialScale = 1;
+
+                if (!el.style.transform) {
+                    el.style.transform = 'scale(1)';
+                }
+                const getScale = () => {
+                    const match = el.style.transform.match(/scale\(([^)]+)\)/);
+                    return match ? parseFloat(match[1]) : 1;
+                };
+
+                // Element Mousedown (Select + Drag)
+                el.addEventListener('mousedown', (e) => {
+                    // Ignore if clicking delete button or handle (they have their own listeners)
+                    if (e.target.classList.contains('delete-btn')) return;
+                    if (e.target === handle) return;
+
+                    selectElement(el);
+
+                    // If clicking inside contenteditable, allow default focus behavior, but don't drag immediately
+                    if (e.target.isContentEditable) {
+                        return;
+                    }
+
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    initialLeft = el.offsetLeft;
+                    initialTop = el.offsetTop;
+
+                    e.preventDefault(); // Stop text selection outside contenteditable
+                });
+
+                // Resizer Mousedown
+                if (handle) {
+                    handle.addEventListener('mousedown', (e) => {
+                        isResizing = true;
+                        startX = e.clientX;
+                        initialScale = getScale();
+                        selectElement(el); // Ensure selected when resizing
+                        e.stopPropagation();
+                        e.preventDefault();
+                    });
+                }
+
+                // Global Move
+                window.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        const dx = e.clientX - startX;
+                        const dy = e.clientY - startY;
+                        el.style.left = `${initialLeft + dx}px`;
+                        el.style.top = `${initialTop + dy}px`;
+                    }
+
+                    if (isResizing) {
+                        const dx = e.clientX - startX;
+                        const deltaScale = dx * 0.002;
+                        let newScale = initialScale + deltaScale;
+                        // Clamp scale
+                        if (newScale < 0.2) newScale = 0.2;
+                        if (newScale > 5) newScale = 5;
+                        el.style.transform = `scale(${newScale})`;
+                    }
+                });
+
+                // Global Up
+                window.addEventListener('mouseup', () => {
+                    isDragging = false;
+                    isResizing = false;
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
