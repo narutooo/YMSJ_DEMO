@@ -4,204 +4,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>温故知新 - 阵列展示</title>
+    <title>温故知新 - 互动排版复刻</title>
     <style>
-        * {
-            box-sizing: border-box;
-            user-select: none;
-            /* Prevent default selection for better drag experience */
-        }
-
-        body,
-        html {
+        /* --- 基础设置 --- */
+        body {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
             background-color: #333;
-            /* Dark background for the outer area */
-            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            /* 画布外的深色背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Microsoft YaHei", "Heiti SC", sans-serif;
+            overflow: hidden;
+            user-select: none;
         }
 
+        /* --- 1920x1080 画布 --- */
         #app {
             position: relative;
             width: 1920px;
-            height: 10080px;
-            /* Mistake correction: 1080px */
-            width: 1920px;
             height: 1080px;
-            background: linear-gradient(to bottom, #f3e7c9 0%, #e0cda5 100%);
-            /* Fallback background reflecting the ancient tone */
+            /* 模拟参考图背景：暖色调古代城市氛围 */
+            background: linear-gradient(to bottom, #fdfbf0 0%, #ffe0b2 60%, #ffcc80 100%);
             overflow: hidden;
-            margin: 0 auto;
-            top: 50%;
-            transform: translateY(-50%);
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            transform-origin: center center;
         }
 
-        /* 
-         * Background Fallback Note: 
-         * The referencing image has a complex Forbidden City illustration. 
-         * Since no assets were provided, we use a gradient and a placeholder text.
-         */
-        #bg-fallback {
+        /* 模拟背景中的一些模糊色块/建筑氛围 (CSS Fallback) */
+        .bg-decoration {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            background-image: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-            opacity: 0.8;
-            pointer-events: none;
+            border-radius: 10px;
+            filter: blur(8px);
+            z-index: 10;
+            opacity: 0.6;
         }
 
-        /* Utility classes for interactivity */
-        .draggable {
+        /* --- 交互组件通用样式 --- */
+        .draggable-item {
             position: absolute;
-            cursor: move;
+            cursor: grab;
+            user-select: none;
+            transition: box-shadow 0.2s;
+            transform-origin: top left;
+            /* 缩放基点 */
         }
 
-        .resizable-handle {
+        .draggable-item:active {
+            cursor: grabbing;
+        }
+
+        .draggable-item.selected {
+            outline: 2px dashed #00aaff;
+            z-index: 9999 !important;
+            /* 选中时临时置顶 */
+        }
+
+        /* 文本编辑时取消 outline */
+        [contenteditable="true"]:focus {
+            outline: none;
+            cursor: text;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* --- 缩放手柄 --- */
+        .resize-handle {
             position: absolute;
             width: 24px;
             height: 24px;
-            right: 0;
-            bottom: 0;
             background-color: white;
             border: 1px solid #ccc;
             border-radius: 50%;
+            bottom: -12px;
+            right: -12px;
             cursor: nwse-resize;
-            z-index: 9999;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 10001;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
         }
 
-        /* Component Styles */
-
-        /* 1. Side Tag: "温故知新" */
-        .side-tag {
-            width: 80px;
-            height: 260px;
-            background-color: #E63935;
-            /* Red */
-            border-radius: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 36px;
-            writing-mode: vertical-rl;
-            text-orientation: upright;
-            letter-spacing: 10px;
-            box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.2);
-            /* Initial Position */
-            left: 50px;
-            top: 50px;
-            z-index: 600;
+        .draggable-item.selected .resize-handle {
+            display: block;
         }
 
-        /* 2. General Card Style */
-        .info-card {
-            width: 700px;
-            height: 320px;
-            background-color: #FFF8D6;
-            /* Pale Yellow */
-            border: 4px solid white;
-            border-radius: 20px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            padding: 40px 20px 20px 20px;
-            /* Top padding for the pill header */
-        }
-
-        /* Card Header Pill */
-        .card-header-pill {
+        /* --- 删除按钮 --- */
+        .delete-btn {
             position: absolute;
-            top: -30px;
-            /* Go above the card */
-            background-color: white;
-            /* White bg for the tag */
-            padding: 10px 30px;
-            border-radius: 30px;
-            font-size: 32px;
-            font-weight: 800;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            white-space: nowrap;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-width: 200px;
+            width: 24px;
+            height: 24px;
+            background-color: #ff4d4f;
+            color: white;
+            border-radius: 50%;
+            top: -12px;
+            right: -12px;
+            text-align: center;
+            line-height: 22px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 10001;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
         }
 
-        /* Content Text */
-        .card-content {
-            font-size: 36px;
-            color: #333;
+        .draggable-item.selected .delete-btn {
+            display: block;
+        }
+
+        /* =========================================
+           特定视觉元素复刻
+           ========================================= */
+
+        /* 1. 左侧红色竖条幅：温故知新 */
+        .side-banner {
+            width: 70px;
+            height: 220px;
+            background: linear-gradient(to bottom, #ff5252, #d32f2f);
+            border-radius: 35px;
+            border: 2px solid #fff;
+            box-shadow: 4px 4px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0;
+            z-index: 800;
+        }
+
+        .side-banner-text {
+            writing-mode: vertical-rl;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 6px;
+            font-family: "KaiTi", "Microsoft YaHei", serif;
+        }
+
+        /* 2. 通用卡片样式 */
+        .content-card {
+            width: 650px;
+            height: 280px;
+            background: linear-gradient(to bottom, #fffef8 0%, #fffde7 100%);
+            /* 淡淡的米黄渐变 */
+            border: 4px solid #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(189, 150, 99, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 500;
+        }
+
+        /* 卡片内容文字 */
+        .card-body {
+            font-size: 34px;
+            color: #3e2723;
+            /* 深棕色字体 */
+            font-weight: bold;
             text-align: center;
             line-height: 1.6;
-            font-weight: 500;
-            width: 90%;
-            outline: none;
-            /* remove outline on focus */
+            padding: 0 40px;
+            width: 100%;
         }
 
-        /* Card 1: Top Left - Orange */
-        #card-1 {
-            left: 200px;
-            top: 150px;
-            z-index: 500;
+        /* 3. 卡片顶部的标题胶囊 (Tag) */
+        .card-tag {
+            position: absolute;
+            top: -25px;
+            background-color: #fff;
+            padding: 8px 30px;
+            border-radius: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            font-size: 28px;
+            font-weight: 900;
+            z-index: 501;
+            white-space: nowrap;
         }
 
-        #card-1 .card-header-pill {
-            color: #F59A23;
-            /* Orange */
+        /* 不同颜色的标题字 */
+        .text-orange {
+            color: #f9a825;
         }
 
-        /* Card 2: Top Right - Green */
-        #card-2 {
-            left: 1000px;
-            top: 150px;
-            z-index: 500;
+        .text-green {
+            color: #2e7d32;
         }
 
-        #card-2 .card-header-pill {
-            color: #009640;
-            /* Green */
+        .text-red {
+            color: #c62828;
         }
 
-        /* Card 3: Bottom Left - Red */
-        #card-3 {
-            left: 200px;
-            top: 550px;
-            z-index: 500;
-        }
-
-        #card-3 .card-header-pill {
-            color: #E63935;
-            /* Red */
-        }
-
-        /* Card 4: Bottom Right - Purple */
-        #card-4 {
-            left: 1000px;
-            top: 550px;
-            z-index: 500;
-        }
-
-        #card-4 .card-header-pill {
-            color: #7057A3;
-            /* Purple */
-        }
-
-        /* Editable text style override */
-        [contenteditable]:focus {
-            outline: 2px dashed rgba(0, 0, 0, 0.2);
-            background-color: rgba(255, 255, 255, 0.5);
+        .text-purple {
+            color: #6a1b9a;
         }
     </style>
 </head>
@@ -209,162 +205,234 @@
 <body>
 
     <div id="app">
-        <!-- Background Fallback -->
-        <div id="bg-fallback"></div>
-
-        <!-- Side Tag -->
-        <div class="draggable side-tag" id="tag-main">
-            <div contenteditable="true">温故知新</div>
-            <div class="resizable-handle"></div>
+        <div class="draggable-item" style="top: 200px; left: 100px; z-index: 10;">
+            <div class="bg-decoration" style="width: 1800px; height: 300px; background: #ffcc80;"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="draggable-item" style="top: 500px; left: 0px; z-index: 11;">
+            <div class="bg-decoration" style="width: 1920px; height: 580px; background: #e64a19; opacity: 0.1;"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
         </div>
 
-        <!-- Card 1: Competence -->
-        <div class="draggable info-card" id="card-1">
-            <div class="card-header-pill">
-                <span contenteditable="true">素养拓展</span>
+        <div class="draggable-item" style="top: 40px; left: 40px; z-index: 800;">
+            <div class="side-banner">
+                <div class="side-banner-text" contenteditable="true">温故知新</div>
             </div>
-            <div class="card-content" contenteditable="true">
-                兵马俑、丝绸之路<br>
-                同音字辨析、象形字、方位词
-            </div>
-            <div class="resizable-handle"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
         </div>
 
-        <!-- Card 2: Deep Thinking -->
-        <div class="draggable info-card" id="card-2">
-            <div class="card-header-pill">
-                <span contenteditable="true">深度思考</span>
+        <div class="draggable-item" style="top: 150px; left: 220px; z-index: 500;">
+            <div class="content-card">
+                <div class="card-tag text-orange" contenteditable="true">素养拓展</div>
+                <div class="card-body" contenteditable="true">
+                    兵马俑、丝绸之路<br>
+                    同音字辨析、象形字、方位词
+                </div>
             </div>
-            <div class="card-content" contenteditable="true">
-                隋炀帝修建大运河<br>
-                是好事还是坏事？
-            </div>
-            <div class="resizable-handle"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
         </div>
 
-        <!-- Card 3: Reading Strategy -->
-        <div class="draggable info-card" id="card-3">
-            <div class="card-header-pill">
-                <span contenteditable="true">阅读策略</span>
+        <div class="draggable-item" style="top: 150px; left: 950px; z-index: 500;">
+            <div class="content-card">
+                <div class="card-tag text-green" contenteditable="true">深度思考</div>
+                <div class="card-body" contenteditable="true">
+                    隋炀帝修建大运河<br>
+                    是好事还是坏事？
+                </div>
             </div>
-            <div class="card-content" contenteditable="true">
-                整合 —— 绘制西域线路图
-            </div>
-            <div class="resizable-handle"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
         </div>
 
-        <!-- Card 4: Writing Method -->
-        <div class="draggable info-card" id="card-4">
-            <div class="card-header-pill">
-                <span contenteditable="true">写作方法</span>
+        <div class="draggable-item" style="top: 550px; left: 220px; z-index: 500;">
+            <div class="content-card">
+                <div class="card-tag text-red" contenteditable="true">阅读策略</div>
+                <div class="card-body" contenteditable="true">
+                    整合 —— 绘制西域线路图
+                </div>
             </div>
-            <div class="card-content" contenteditable="true">
-                “远近四周法” 介绍景点
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable-item" style="top: 550px; left: 950px; z-index: 500;">
+            <div class="content-card">
+                <div class="card-tag text-purple" contenteditable="true">写作方法</div>
+                <div class="card-body" contenteditable="true">
+                    “远近四周法” 介绍景点
+                </div>
             </div>
-            <div class="resizable-handle"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
         </div>
 
     </div>
 
     <script>
-        // Interaction Logic
-        document.addEventListener('DOMContentLoaded', () => {
-            const app = document.getElementById('app');
-            let currentZIndex = 1000;
+        /**
+         * JS Logic: Interaction, Undo/Redo, Drag, Resize
+         */
 
-            // Helper: Bring to front
-            const bringToFront = (el) => {
-                currentZIndex++;
-                el.style.zIndex = currentZIndex;
-            };
+        const app = document.getElementById('app');
+        const historyStack = [];
+        let currentStep = -1;
+        const MAX_HISTORY = 20;
 
-            // Initialize draggables
-            const draggables = document.querySelectorAll('.draggable');
+        // 1. Auto Fit Screen (Preview helper)
+        function fitScreen() {
+            const scaleX = window.innerWidth / 1920;
+            const scaleY = window.innerHeight / 1080;
+            const scale = Math.min(scaleX, scaleY);
+            // app.style.transform = `scale(${scale})`; // Uncomment if needed
+        }
+        window.addEventListener('resize', fitScreen);
+        fitScreen();
 
-            draggables.forEach(el => {
-                // State for dragging
-                let isDragging = false;
-                let startX, startY, initialLeft, initialTop;
+        // 2. History System
+        function saveState() {
+            if (currentStep < historyStack.length - 1) {
+                historyStack.splice(currentStep + 1);
+            }
+            historyStack.push(app.innerHTML);
+            if (historyStack.length > MAX_HISTORY) {
+                historyStack.shift();
+            } else {
+                currentStep++;
+            }
+        }
 
-                // State for scaling
-                const handle = el.querySelector('.resizable-handle');
-                let isResizing = false;
-                let startScaleX, startScaleY, initialScale = 1;
+        // Save initial state
+        saveState();
 
-                // Initialize scale transform if not present
-                if (!el.style.transform) {
-                    el.style.transform = 'scale(1)';
+        function undo() {
+            if (currentStep > 0) {
+                currentStep--;
+                app.innerHTML = historyStack[currentStep];
+            }
+        }
+
+        // Key Listeners
+        document.addEventListener('keydown', (e) => {
+            // Undo: Ctrl+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+            // Delete
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selected = document.querySelector('.draggable-item.selected');
+                if (selected && document.activeElement.getAttribute('contenteditable') !== 'true') {
+                    selected.remove();
+                    saveState();
                 }
-                // Parse current scale
-                const getScale = () => {
-                    const transform = el.style.transform;
-                    const match = transform.match(/scale\(([^)]+)\)/);
-                    return match ? parseFloat(match[1]) : 1;
-                };
-
-                // Mouse Down on Element (Drag start)
-                el.addEventListener('mousedown', (e) => {
-                    // If clicking on contenteditable, don't drag immediately unless it's the container
-                    if (e.target.isContentEditable) return;
-                    // If clicking resize handle, handled separately
-                    if (e.target === handle) return;
-
-                    isDragging = true;
-                    bringToFront(el);
-
-                    startX = e.clientX;
-                    startY = e.clientY;
-                    initialLeft = el.offsetLeft;
-                    initialTop = el.offsetTop;
-
-                    e.preventDefault(); // Prevent text selection during drag
-                });
-
-                // Mouse Down on Handle (Resize start)
-                if (handle) {
-                    handle.addEventListener('mousedown', (e) => {
-                        isResizing = true;
-                        bringToFront(el);
-
-                        startX = e.clientX;
-                        startY = e.clientY;
-                        initialScale = getScale();
-
-                        e.stopPropagation(); // Stop drag event
-                        e.preventDefault();
-                    });
-                }
-
-                // Global Mouse Move
-                window.addEventListener('mousemove', (e) => {
-                    if (isDragging) {
-                        const dx = e.clientX - startX;
-                        const dy = e.clientY - startY;
-
-                        el.style.left = `${initialLeft + dx}px`;
-                        el.style.top = `${initialTop + dy}px`;
-                    }
-
-                    if (isResizing) {
-                        const dx = e.clientX - startX;
-                        // Simple uniform scaling based on X movement
-                        // Sensitivity factor: 0.005 per pixel
-                        const deltaScale = dx * 0.002;
-                        let newScale = initialScale + deltaScale;
-                        if (newScale < 0.2) newScale = 0.2; // Min scale
-                        if (newScale > 3) newScale = 3;   // Max scale
-
-                        el.style.transform = `scale(${newScale})`;
-                    }
-                });
-
-                // Global Mouse Up
-                window.addEventListener('mouseup', () => {
-                    isDragging = false;
-                    isResizing = false;
-                });
-            });
+            }
         });
+
+        // 3. Interaction Handling (Delegation)
+        let activeDragItem = null;
+        let activeResizeItem = null;
+        let startX, startY;
+        let initialLeft, initialTop;
+        let initialScale = 1;
+
+        // Helper: get current scale from transform matrix
+        function getScale(element) {
+            const style = window.getComputedStyle(element);
+            const matrix = new WebKitCSSMatrix(style.transform);
+            return matrix.a; // 'a' corresponds to scale X
+        }
+
+        // MOUSE DOWN
+        app.addEventListener('mousedown', (e) => {
+            // Delete button click
+            if (e.target.classList.contains('delete-btn')) {
+                const item = e.target.closest('.draggable-item');
+                if (item) {
+                    item.remove();
+                    saveState();
+                }
+                return;
+            }
+
+            // Resize handle click
+            if (e.target.classList.contains('resize-handle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                activeResizeItem = e.target.closest('.draggable-item');
+                startX = e.clientX;
+                initialScale = getScale(activeResizeItem);
+                return;
+            }
+
+            // Drag Selection
+            const item = e.target.closest('.draggable-item');
+
+            // Deselect others if not holding Ctrl
+            if (!e.ctrlKey) {
+                document.querySelectorAll('.draggable-item.selected').forEach(el => {
+                    if (el !== item) el.classList.remove('selected');
+                });
+            }
+
+            if (item) {
+                // Edit text mode check
+                if (e.target.getAttribute('contenteditable') === 'true') {
+                    item.classList.add('selected');
+                    return;
+                }
+
+                activeDragItem = item;
+                item.classList.add('selected');
+
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = item.offsetLeft;
+                initialTop = item.offsetTop;
+
+                e.preventDefault();
+            } else {
+                // Clicked background
+                document.querySelectorAll('.draggable-item.selected').forEach(el => el.classList.remove('selected'));
+            }
+        });
+
+        // MOUSE MOVE
+        document.addEventListener('mousemove', (e) => {
+            if (activeDragItem) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                activeDragItem.style.left = `${initialLeft + dx}px`;
+                activeDragItem.style.top = `${initialTop + dy}px`;
+            }
+
+            if (activeResizeItem) {
+                const dx = e.clientX - startX;
+                // Scale sensitivity
+                const newScale = Math.max(0.1, initialScale + dx * 0.002);
+                activeResizeItem.style.transform = `scale(${newScale})`;
+            }
+        });
+
+        // MOUSE UP
+        document.addEventListener('mouseup', () => {
+            if (activeDragItem || activeResizeItem) {
+                saveState(); // Record change
+            }
+            activeDragItem = null;
+            activeResizeItem = null;
+        });
+
+        // Text Edit Save
+        app.addEventListener('focusout', (e) => {
+            if (e.target.getAttribute('contenteditable') === 'true') {
+                saveState();
+            }
+        });
+
     </script>
 </body>
 
