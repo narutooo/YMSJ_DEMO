@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Layout Generator</title>
+    <style>
+        /* =========================================
+           1. Global Reset & Canvas Setup
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            /* Prevent native text selection for dragging */
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #333;
+            /* Dark workspace */
+            overflow: hidden;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+        }
+
+        #app {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1);
+            /* Scale handled by JS if needed for fitting */
+            width: 1920px;
+            height: 1080px;
+            background-color: #1a2340;
+            /* Fallback color */
+            /* 模拟原图的夜景背景，实际使用时请替换为真实背景图 URL */
+            background-image: radial-gradient(circle at 50% 100%, #2b3c65 0%, #111626 100%);
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        }
+
+        /* =========================================
+           2. Component Styles (Visual Reproduction)
+           ========================================= */
+
+        /* Common Component Base */
+        .comp {
+            position: absolute;
+            cursor: move;
+            transform-origin: top left;
+        }
+
+        /* Selection State */
+        .comp.selected {
+            outline: 2px dashed #00e5ff;
+            z-index: 9999 !important;
+            /* Temporarily bring to top when selected */
+        }
+
+        /* Resize Handle (White Circle) */
+        .resize-handle {
+            position: absolute;
+            right: -12px;
+            bottom: -12px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            cursor: se-resize;
+            display: none;
+            /* Hidden by default */
+            z-index: 10001;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .comp.selected .resize-handle {
+            display: block;
+        }
+
+        /* Delete Button (Red X) */
+        .delete-btn {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background: #ff4d4f;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 10001;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .comp.selected .delete-btn {
+            display: block;
+        }
+
+        /* Text Editing Styling */
+        [contenteditable="true"] {
+            outline: none;
+            cursor: text;
+        }
+
+        /* --- Custom UI Elements based on Reference --- */
+
+        /* 1. Square Direction Buttons (White bg, Colored Border) */
+        .btn-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            font-size: 60px;
+            font-weight: bold;
+        }
+
+        /* Button Variants */
+        .btn-left {
+            border: 6px solid #d48df0;
+            color: #d48df0;
+        }
+
+        /* Purple */
+        .btn-right {
+            border: 6px solid #ff6b6b;
+            color: #ff6b6b;
+        }
+
+        /* Red */
+        .btn-back {
+            border: 6px solid #4ecdc4;
+            color: #4ecdc4;
+        }
+
+        /* Teal/Green */
+        .btn-front {
+            border: 6px solid #ffb347;
+            color: #ffb347;
+        }
+
+        /* Orange */
+
+        /* 2. Main Title Text (Stroke Effect) */
+        .main-title {
+            font-size: 72px;
+            font-weight: 900;
+            color: white;
+            text-align: center;
+            line-height: 1.2;
+            /* Simulating the heavy blue stroke/shadow */
+            text-shadow:
+                3px 3px 0 #3a6ea5,
+                -1px -1px 0 #3a6ea5,
+                1px -1px 0 #3a6ea5,
+                -1px 1px 0 #3a6ea5,
+                1px 1px 0 #3a6ea5;
+            z-index: 600;
+        }
+
+        .main-title span {
+            display: block;
+        }
+
+        /* 3. Top Left Badge (Vertical Red Tag) */
+        .badge-sidebar {
+            background-color: #e63946;
+            color: white;
+            width: 60px;
+            height: 200px;
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.2);
+            padding-top: 10px;
+            z-index: 500;
+        }
+
+        /* 4. Top Right Watermark */
+        .watermark {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 500;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="comp badge-sidebar" style="top: 0px; left: 60px; width: 60px; height: 220px; z-index: 500;"
+            data-type="decor">
+            <div contenteditable="true">博览群书</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp watermark" style="top: 40px; right: 60px; width: 150px; height: 40px; z-index: 500;"
+            data-type="text">
+            <div contenteditable="true">学而思网校</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp main-title" style="top: 400px; left: 560px; width: 800px; height: 200px; z-index: 600;"
+            data-type="text">
+            <div contenteditable="true">
+                “远近四周法”<br>
+                前后左右有什么？
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp btn-box btn-back" style="top: 200px; left: 885px; width: 150px; height: 150px; z-index: 200;"
+            data-type="container">
+            <div contenteditable="true">后</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp btn-box btn-left" style="top: 465px; left: 200px; width: 150px; height: 150px; z-index: 200;"
+            data-type="container">
+            <div contenteditable="true">左</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp btn-box btn-right" style="top: 465px; right: 200px; width: 150px; height: 150px; z-index: 200;"
+            data-type="container">
+            <div contenteditable="true">右</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp btn-box btn-front" style="top: 800px; left: 885px; width: 150px; height: 150px; z-index: 200;"
+            data-type="container">
+            <div contenteditable="true">前</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        /* =========================================
+           3. Interaction Logic (JS Specs)
+           ========================================= */
+
+        const app = document.getElementById('app');
+        let historyStack = [];
+        const MAX_HISTORY = 20;
+
+        // --- History System ---
+        function saveState() {
+            // Debounce or verify if change happened could be added here
+            const currentHTML = app.innerHTML;
+            if (historyStack.length === 0 || historyStack[historyStack.length - 1] !== currentHTML) {
+                historyStack.push(currentHTML);
+                if (historyStack.length > MAX_HISTORY) historyStack.shift();
+            }
+        }
+
+        // Initial save
+        saveState();
+
+        function undo() {
+            if (historyStack.length > 1) {
+                historyStack.pop(); // Remove current state
+                const previousState = historyStack[historyStack.length - 1];
+                app.innerHTML = previousState;
+                // Note: Event delegation handles interactions, so no re-binding needed
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            // Undo: Ctrl+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+            // Delete: Backspace/Delete (Only if not editing text)
+            if ((e.key === 'Delete' || e.key === 'Backspace')) {
+                const selected = document.querySelector('.selected');
+                // Check if focusing on text input to prevent deleting element when deleting text
+                const isEditing = document.activeElement.isContentEditable;
+                if (selected && !isEditing) {
+                    selected.remove();
+                    saveState();
+                }
+            }
+        });
+
+        // --- Mouse Interaction State ---
+        let activeEl = null;
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY;
+        let startLeft, startTop;
+        let startScale = 1;
+
+        // Helper to get scale from transform string
+        function getScale(el) {
+            const transform = el.style.transform;
+            const match = transform.match(/scale\(([^)]+)\)/);
+            return match ? parseFloat(match[1]) : 1;
+        }
+
+        // --- Event Delegation (mousedown) ---
+        app.addEventListener('mousedown', (e) => {
+            // 1. Handle Delete Button Click
+            if (e.target.classList.contains('delete-btn')) {
+                const comp = e.target.closest('.comp');
+                if (comp) {
+                    comp.remove();
+                    saveState();
+                }
+                return;
+            }
+
+            // 2. Identify Target
+            const comp = e.target.closest('.comp');
+            if (!comp) {
+                // Clicked background -> Deselect all
+                document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                return;
+            }
+
+            // Select Component
+            if (!comp.classList.contains('selected')) {
+                document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+                comp.classList.add('selected');
+            }
+            activeEl = comp;
+
+            // 3. Handle Resizing
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                startX = e.clientX;
+                startScale = getScale(activeEl);
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            // 4. Handle Dragging (if not clicking editable text directly)
+            else if (e.target.getAttribute('contenteditable') !== 'true') {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = parseInt(activeEl.style.left || 0);
+                startTop = parseInt(activeEl.style.top || 0);
+            }
+        });
+
+        // --- Event Delegation (mousemove) ---
+        document.addEventListener('mousemove', (e) => {
+            if (!activeEl) return;
+
+            if (isDragging) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                activeEl.style.left = `${startLeft + dx}px`;
+                activeEl.style.top = `${startTop + dy}px`;
+            }
+            else if (isResizing) {
+                const dx = e.clientX - startX;
+                // Simple scale logic based on horizontal drag distance
+                // 100px drag = +0.1 scale
+                const newScale = Math.max(0.2, startScale + (dx / 500));
+                activeEl.style.transform = `scale(${newScale})`;
+            }
+        });
+
+        // --- Event Delegation (mouseup) ---
+        document.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) {
+                saveState(); // Save snapshot after interaction
+            }
+            isDragging = false;
+            isResizing = false;
+            // activeEl = null; // Keep selected
+        });
+
+        // --- Text Edit Snapshot ---
+        app.addEventListener('focusout', (e) => {
+            if (e.target.isContentEditable) {
+                saveState();
+            }
+        }, true);
+
+    </script>
+</body>
+
+</html>
