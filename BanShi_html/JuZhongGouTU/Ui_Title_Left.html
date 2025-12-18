@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Courseware Layout Generator</title>
+    <style>
+        /* =========================================
+           Reset & Base
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        /* =========================================
+           Canvas (#app) - 1920x1080 Fixed
+           ========================================= */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background: linear-gradient(to bottom, #a8e063 0%, #56ab2f 100%);
+            /* Forest Green Fallback */
+            background-size: cover;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            transform-origin: center center;
+        }
+
+        /* Simulate Reference Image Background Details with CSS */
+        .bg-decor-1 {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 400px;
+            background: linear-gradient(180deg, #bbf0f3 0%, rgba(187, 240, 243, 0) 100%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-tree-left {
+            position: absolute;
+            left: -50px;
+            bottom: 0;
+            width: 300px;
+            height: 800px;
+            background: #2e7d32;
+            border-radius: 0 200px 0 0;
+            opacity: 0.8;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-tree-right {
+            position: absolute;
+            right: -100px;
+            bottom: 0;
+            width: 400px;
+            height: 900px;
+            background: #1b5e20;
+            border-radius: 200px 0 0 0;
+            opacity: 0.9;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* =========================================
+           Component System
+           ========================================= */
+        .comp {
+            position: absolute;
+            cursor: move;
+            transform-origin: top left;
+        }
+
+        /* Selection State */
+        .comp.selected {
+            outline: 2px dashed #007AFF;
+        }
+
+        .comp.selected .resize-handle,
+        .comp.selected .delete-btn {
+            display: block;
+        }
+
+        /* Resize Handle */
+        .resize-handle {
+            position: absolute;
+            bottom: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #007AFF;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+            /* Hidden by default */
+            z-index: 9999;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Delete Button */
+        .delete-btn {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background: #ff3b30;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Content Editable Reset */
+        [contenteditable="true"] {
+            cursor: text;
+            user-select: text;
+            outline: none;
+        }
+
+        /* =========================================
+           Specific Visual Fallbacks (CSS Drawing)
+           ========================================= */
+
+        /* 1. Side Badge (温故知新) */
+        .c-badge {
+            width: 80px;
+            height: 260px;
+            background: #ff4757;
+            border-radius: 0 0 40px 40px;
+            border: 4px solid #fff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: bold;
+            writing-mode: vertical-lr;
+            letter-spacing: 10px;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 600;
+        }
+
+        /* 2. Header (调节时间) */
+        .c-header {
+            width: 500px;
+            height: 100px;
+            background: #2c3e50;
+            /* Fallback for purple */
+            background: linear-gradient(to right, #4834d4, #686de0);
+            border-radius: 50px;
+            border: 6px solid #f9ca24;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            z-index: 700;
+        }
+
+        /* 3. Main Board (Whiteboard) */
+        .c-board {
+            width: 1200px;
+            height: 700px;
+            background: #fff8e1;
+            border: 20px solid #fbc531;
+            border-radius: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            padding: 60px 80px;
+            font-size: 36px;
+            color: #2f3542;
+            line-height: 1.8;
+            z-index: 200;
+        }
+
+        .c-board u {
+            text-decoration: none;
+            border-bottom: 3px solid #2f3542;
+            display: inline-block;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        /* 4. Character (Girl) - CSS Placeholder */
+        .c-girl {
+            width: 350px;
+            height: 500px;
+            /* Placeholder graphic since no asset provided */
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="30" r="20" fill="%23ffcccc"/><path d="M20,90 Q50,30 80,90" fill="%2370a1ff"/></svg>') no-repeat center bottom;
+            background-size: contain;
+            /* Add drop shadow to simulate cutout */
+            filter: drop-shadow(5px 5px 10px rgba(0, 0, 0, 0.3));
+            z-index: 800;
+        }
+
+        /* 5. Speech Bubble */
+        .c-bubble {
+            width: 320px;
+            height: 220px;
+            background: white;
+            border-radius: 50%;
+            padding: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 30px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            z-index: 850;
+        }
+
+        .c-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            right: 60px;
+            width: 40px;
+            height: 40px;
+            background: white;
+            transform: rotate(45deg);
+        }
+
+        /* 6. Monkey Icon (Top Left) */
+        .c-monkey {
+            width: 180px;
+            height: 60px;
+            background: #ff9f43;
+            border-radius: 30px;
+            border: 3px solid white;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 750;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .c-monkey::before {
+            content: '🐵';
+            font-size: 36px;
+            margin-right: 10px;
+        }
+
+        /* 7. Sunflower (Decor) */
+        .c-flower {
+            width: 120px;
+            height: 120px;
+            background: #fbc531;
+            border-radius: 50%;
+            border: 5px solid #e1b12c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            z-index: 750;
+        }
+
+        .c-flower::after {
+            content: '🌻';
+            font-size: 80px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="bg-decor-1"></div>
+        <div class="bg-tree-left"></div>
+        <div class="bg-tree-right"></div>
+
+        <div class="comp c-board" style="top: 260px; left: 360px;" data-scale="1">
+            <div contenteditable="true">
+                小狗你好！<br>
+                朋友应该是 <u>互相帮助</u> 的人。<br>
+                如果你在和朋友相处的过程中感到委屈，<u>请大声说出来</u>。<br>
+                如果对方愿意改正，你可以试着和他做朋友；<br>
+                如果他依旧伤害你，你可以和他 <u>保持距离</u>。<br>
+                祝你早日找到你的知音！
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp c-header" style="top: 180px; left: 710px;" data-scale="1">
+            <div contenteditable="true">调节时间</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp c-badge" style="top: 0px; left: 40px;" data-scale="1">
+            <div contenteditable="true">温故知新</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp c-monkey" style="top: 200px; left: 380px;" data-scale="1">
+            <div contenteditable="true">上台发言</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp c-girl" style="top: 480px; left: 100px;" data-scale="1">
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp c-bubble" style="top: 320px; left: 50px;" data-scale="1">
+            <div contenteditable="true">请你帮助小狗<br>解开心结吧！</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="comp c-flower" style="top: 150px; left: 1450px;" data-scale="1">
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * Generic Interactive HTML Generator - Core Logic
+         * Implements: Drag, Resize, Edit, Delete, Undo/Redo
+         */
+
+        const app = document.getElementById('app');
+        let historyStack = [];
+        let historyIndex = -1;
+        let isDragging = false;
+        let isResizing = false;
+        let activeEl = null;
+        let startX, startY, startLeft, startTop, startScale;
+
+        // --- History System ---
+
+        function saveState() {
+            // Debounce or check if state actually changed could be added here
+            // For this demo, we save on specific trigger events
+            const currentState = app.innerHTML;
+
+            // Remove future states if we are in the middle of the stack
+            if (historyIndex < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+            }
+
+            historyStack.push(currentState);
+            historyIndex++;
+            // Limit stack size (optional)
+            if (historyStack.length > 50) {
+                historyStack.shift();
+                historyIndex--;
+            }
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                restoreState();
+            }
+        }
+
+        function redo() { // Optional implementation
+            if (historyIndex < historyStack.length - 1) {
+                historyIndex++;
+                restoreState();
+            }
+        }
+
+        function restoreState() {
+            app.innerHTML = historyStack[historyIndex];
+            // Note: Event listeners are on document/app (delegation), 
+            // so we don't need to rebind individual elements.
+        }
+
+        // Initialize first state
+        saveState();
+
+        // --- Interaction Logic ---
+
+        // 1. Selection & Global Click
+        app.addEventListener('mousedown', (e) => {
+            // Deselect if clicking on empty background
+            if (e.target === app || e.target.classList.contains('bg-decor-1')) {
+                document.querySelectorAll('.comp.selected').forEach(el => el.classList.remove('selected'));
+            }
+        });
+
+        // 2. Drag & Resize & Delete Delegation
+        app.addEventListener('mousedown', (e) => {
+            const target = e.target;
+
+            // A. Delete Button
+            if (target.classList.contains('delete-btn')) {
+                const comp = target.closest('.comp');
+                if (comp) {
+                    comp.remove();
+                    saveState();
+                }
+                return;
+            }
+
+            // B. Resize Handle
+            if (target.classList.contains('resize-handle')) {
+                isResizing = true;
+                activeEl = target.closest('.comp');
+                activeEl.classList.add('selected'); // Auto select
+
+                // Calculate current scale
+                const transform = window.getComputedStyle(activeEl).transform;
+                let currentScale = 1;
+                if (transform !== 'none') {
+                    const matrix = new DOMMatrix(transform);
+                    currentScale = matrix.a; // Assume uniform scale
+                }
+                activeEl.dataset.scale = currentScale; // Sync dataset
+
+                startX = e.clientX;
+                startScale = parseFloat(activeEl.dataset.scale || 1);
+
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+
+            // C. Drag Component
+            const comp = target.closest('.comp');
+            if (comp && !target.getAttribute('contenteditable')) {
+                isDragging = true;
+                activeEl = comp;
+
+                // Handle Selection Visuals
+                document.querySelectorAll('.comp.selected').forEach(el => {
+                    if (el !== activeEl) el.classList.remove('selected');
+                });
+                activeEl.classList.add('selected');
+
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = activeEl.offsetLeft;
+                startTop = activeEl.offsetTop;
+
+                e.preventDefault(); // Prevent text selection
+            }
+        });
+
+        // Mouse Move (Global)
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging && activeEl) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                activeEl.style.left = `${startLeft + dx}px`;
+                activeEl.style.top = `${startTop + dy}px`;
+            } else if (isResizing && activeEl) {
+                // Simple scale logic based on X-axis movement
+                // Dragging right increases scale, left decreases
+                const dx = e.clientX - startX;
+                const newScale = Math.max(0.2, startScale + (dx * 0.005));
+
+                activeEl.style.transform = `scale(${newScale})`;
+                activeEl.dataset.scale = newScale;
+            }
+        });
+
+        // Mouse Up (End Interaction)
+        document.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) {
+                saveState(); // Save state after modification
+            }
+            isDragging = false;
+            isResizing = false;
+            activeEl = null;
+        });
+
+        // 3. Text Edit Handling
+        app.addEventListener('focusout', (e) => {
+            if (e.target.getAttribute('contenteditable') === 'true') {
+                saveState(); // Save when text editing finishes
+            }
+        });
+
+        // 4. Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Undo: Ctrl+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+
+            // Delete: Del or Backspace (only if a component is selected and NOT editing text)
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selected = document.querySelector('.comp.selected');
+                const isEditing = document.activeElement.getAttribute('contenteditable') === 'true';
+
+                if (selected && !isEditing) {
+                    selected.remove();
+                    saveState();
+                }
+            }
+        });
+
+        // Scale Handling Helper for App (keep 1920x1080 fitting in window)
+        function fitApp() {
+            const scaleX = window.innerWidth / 1920;
+            const scaleY = window.innerHeight / 1080;
+            const scale = Math.min(scaleX, scaleY);
+            // app.style.transform = `scale(${scale})`; 
+            // Note: For this strict output, we keep 1920x1080 fixed as per requirements, 
+            // relying on the user to view on a large screen or browser scroll.
+            // If fit-to-screen is desired, uncomment above.
+        }
+        window.addEventListener('resize', fitApp);
+
+    </script>
+</body>
+
+</html>

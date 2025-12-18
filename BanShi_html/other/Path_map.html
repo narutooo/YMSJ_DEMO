@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Story Map Interactive Generator</title>
+    <style>
+        /* =========================================
+           RESET & BASIC SETUP
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            /* Prevent text selection while dragging */
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #333;
+            /* Dark outside canvas */
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        /* =========================================
+           CANVAS (#app)
+           ========================================= */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background: linear-gradient(135deg, #6a85b6 0%, #bac8e0 100%);
+            /* Blueish fallback bg */
+            overflow: hidden;
+            margin: 0 auto;
+            transform-origin: top left;
+            /* Scale down to fit screen for preview if needed, controlled by JS logic usually, 
+               but here we keep it 1:1 or use browser zoom */
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        }
+
+        /* =========================================
+           COMPONENT STYLES
+           ========================================= */
+
+        /* Common Wrapper for Interactive Elements */
+        .comp-wrapper {
+            position: absolute;
+            cursor: move;
+            /* Interaction visual cues */
+            transition: box-shadow 0.2s;
+        }
+
+        .comp-wrapper:hover {
+            outline: 1px dashed rgba(255, 255, 255, 0.5);
+        }
+
+        .comp-wrapper.selected {
+            outline: 2px solid #0099ff;
+            z-index: 1000 !important;
+            /* Temporarily bring to front when selected */
+        }
+
+        /* 1. Background Scroll (Simulated with CSS) */
+        .scroll-paper {
+            background-color: #fff9e6;
+            border-radius: 10px;
+            box-shadow: inset 0 0 50px rgba(139, 69, 19, 0.1);
+        }
+
+        /* The Roller Ends */
+        .scroll-roller {
+            background: linear-gradient(to right, #f4a460, #ffd700, #f4a460);
+            border-radius: 20px;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 2. Path (SVG) */
+        .path-svg {
+            pointer-events: none;
+            /* Let clicks pass through to background */
+            filter: drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.2));
+        }
+
+        /* 3. Character Nodes (Circles) */
+        .char-circle {
+            border-radius: 50%;
+            border: 6px solid #82caff;
+            background-color: #eee;
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 4. Number Badges */
+        .num-badge {
+            background-color: #5c7cfa;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 32px;
+            font-family: Arial, sans-serif;
+            border: 3px solid #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 5. Text Bubbles/Boxes */
+        .text-box {
+            background-color: #8ce0f0;
+            /* Light Cyan */
+            color: #2c3e50;
+            border-radius: 15px;
+            padding: 10px 20px;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.1);
+            outline: none;
+            /* Remove focus outline */
+        }
+
+        .text-box[contenteditable]:focus {
+            background-color: #fff;
+            cursor: text;
+        }
+
+        /* =========================================
+           UI CONTROLS (Handles, Buttons)
+           ========================================= */
+
+        /* Resize Handle */
+        .resize-handle {
+            position: absolute;
+            bottom: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            cursor: se-resize;
+            display: none;
+            /* Hidden by default */
+            z-index: 9999;
+        }
+
+        .comp-wrapper.selected .resize-handle {
+            display: block;
+        }
+
+        /* Delete Button */
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background-color: #ff4d4f;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .comp-wrapper.selected .delete-btn {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="comp-wrapper" style="left: 80px; top: 50px; width: 60px; height: 980px; z-index: 110;">
+            <div class="scroll-roller" style="width: 100%; height: 100%;"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 110px; top: 80px; width: 1700px; height: 920px; z-index: 100;">
+            <div class="scroll-paper" style="width: 100%; height: 100%;"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 1780px; top: 50px; width: 60px; height: 980px; z-index: 110;">
+            <div class="scroll-roller" style="width: 100%; height: 100%;"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper"
+            style="left: 110px; top: 80px; width: 1700px; height: 920px; z-index: 150; pointer-events: none;">
+            <svg width="100%" height="100%" viewBox="0 0 1700 920" class="path-svg">
+                <path d="M 100 400 Q 300 600, 500 450 T 900 450 T 1300 450 T 1600 600" stroke="#00ced1" stroke-width="8"
+                    fill="none" stroke-linecap="round" />
+                <circle cx="300" cy="520" r="10" fill="#00ced1" />
+                <circle cx="700" cy="520" r="10" fill="#00ced1" />
+                <circle cx="1100" cy="520" r="10" fill="#00ced1" />
+                <circle cx="1500" cy="520" r="10" fill="#00ced1" />
+            </svg>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 200px; top: 180px; width: 220px; height: 80px; z-index: 600;">
+            <div class="text-box" contenteditable="true">衣柜藏着<br>大森林</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 210px; top: 350px; width: 50px; height: 50px; z-index: 610;">
+            <div class="num-badge" contenteditable="true">1</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 230px; top: 300px; width: 160px; height: 160px; z-index: 500;">
+            <div class="char-circle" style="background-image: linear-gradient(to bottom right, #553311, #8B4513);">
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 400px; top: 550px; width: 160px; height: 160px; z-index: 500;">
+            <div class="char-circle" style="background-image: linear-gradient(to bottom right, #eee, #ddd);"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 380px; top: 540px; width: 50px; height: 50px; z-index: 610;">
+            <div class="num-badge" contenteditable="true">2</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 370px; top: 730px; width: 220px; height: 60px; z-index: 600;">
+            <div class="text-box" contenteditable="true">白女巫的诡计</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 480px; top: 200px; width: 220px; height: 60px; z-index: 600;">
+            <div class="text-box" contenteditable="true">他竟然背叛了</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 500px; top: 320px; width: 50px; height: 50px; z-index: 610;">
+            <div class="num-badge" contenteditable="true">3</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 510px; top: 280px; width: 160px; height: 160px; z-index: 500;">
+            <div class="char-circle" style="background-image: linear-gradient(to bottom right, #333, #666);"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 650px; top: 500px; width: 50px; height: 50px; z-index: 610;">
+            <div class="num-badge" contenteditable="true">4</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 680px; top: 520px; width: 160px; height: 160px; z-index: 500;">
+            <div class="char-circle" style="background-image: linear-gradient(to bottom right, #2ecc71, #27ae60);">
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 650px; top: 700px; width: 220px; height: 100px; z-index: 600;">
+            <div class="text-box" contenteditable="true">阿斯兰究竟<br>是谁</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 850px; top: 200px; width: 220px; height: 100px; z-index: 600;">
+            <div class="text-box" contenteditable="true">营救爱德蒙<br>行动</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 880px; top: 350px; width: 50px; height: 50px; z-index: 610;">
+            <div class="num-badge" contenteditable="true">5</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 900px; top: 320px; width: 160px; height: 160px; z-index: 500;">
+            <div class="char-circle" style="background-image: linear-gradient(to bottom right, #e74c3c, #c0392b);">
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 1050px; top: 540px; width: 50px; height: 50px; z-index: 610;">
+            <div class="num-badge" contenteditable="true">6</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 1080px; top: 520px; width: 160px; height: 160px; z-index: 500;">
+            <div class="char-circle" style="background-image: linear-gradient(to bottom right, #000, #333);"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 1020px; top: 700px; width: 240px; height: 100px; z-index: 600;">
+            <div class="text-box" contenteditable="true">阿斯兰狮王<br>的秘密</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 1200px; top: 180px; width: 220px; height: 60px; z-index: 600;">
+            <div class="text-box" contenteditable="true">狮王的重生</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 1180px; top: 320px; width: 50px; height: 50px; z-index: 610;">
+            <div class="num-badge" contenteditable="true">7</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 1210px; top: 270px; width: 160px; height: 160px; z-index: 500;">
+            <div class="char-circle" style="background-image: linear-gradient(to bottom right, #f1c40f, #f39c12);">
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper" style="left: 1400px; top: 580px; width: 50px; height: 50px; z-index: 610;">
+            <div class="num-badge" contenteditable="true">8</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 1420px; top: 550px; width: 160px; height: 160px; z-index: 500;">
+            <div class="char-circle" style="background-image: linear-gradient(to bottom right, #e67e22, #d35400);">
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp-wrapper" style="left: 1350px; top: 730px; width: 240px; height: 100px; z-index: 600;">
+            <div class="text-box" contenteditable="true">正义与邪恶<br>的较量</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="comp-wrapper"
+            style="left: 50px; top: 700px; width: 300px; height: 300px; z-index: 550; opacity: 0.8; pointer-events: none;">
+            <div
+                style="width:100%; height:100%; background: radial-gradient(ellipse at center, white 0%, transparent 70%); transform: rotate(45deg);">
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = document.getElementById('app');
+            const historyStack = [];
+            let historyIndex = -1;
+            const MAX_HISTORY = 20;
+
+            let selectedEl = null;
+            let isDragging = false;
+            let isResizing = false;
+            let startX, startY;
+            let initialLeft, initialTop;
+            let initialWidth, initialHeight, initialScaleX, initialScaleY;
+
+            // --- History System ---
+            function saveState() {
+                // Remove previous forward history if we are in the middle of stack
+                if (historyIndex < historyStack.length - 1) {
+                    historyStack.splice(historyIndex + 1);
+                }
+                // Push Clean HTML (remove selection classes usually, but simple innerHTML is fine for now)
+                // Ideally we clone, remove .selected, then save. 
+                // For simplicity in this demo, we save as is, but on restore we clear selection variables.
+                historyStack.push(app.innerHTML);
+                if (historyStack.length > MAX_HISTORY) historyStack.shift();
+                else historyIndex++;
+            }
+
+            // Initial State
+            saveState();
+
+            function restoreState(html) {
+                app.innerHTML = html;
+                // Re-bind not needed because we use event delegation on document/app
+                selectedEl = null;
+            }
+
+            function undo() {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    restoreState(historyStack[historyIndex]);
+                }
+            }
+
+            // --- Selection Logic ---
+            function selectElement(el) {
+                if (selectedEl) selectedEl.classList.remove('selected');
+                selectedEl = el;
+                if (selectedEl) selectedEl.classList.add('selected');
+            }
+
+            // --- Event Delegation ---
+
+            // Mouse Down
+            app.addEventListener('mousedown', (e) => {
+                // 1. Check for Resize Handle
+                if (e.target.classList.contains('resize-handle')) {
+                    isResizing = true;
+                    const wrapper = e.target.closest('.comp-wrapper');
+                    selectElement(wrapper);
+
+                    startX = e.clientX;
+                    startY = e.clientY;
+
+                    // Get current scale (transform matrix)
+                    const style = window.getComputedStyle(wrapper);
+                    const matrix = new WebKitCSSMatrix(style.transform);
+                    initialScaleX = matrix.a; // scale x
+                    // We use width/height of rect to calculate ratio
+                    initialWidth = wrapper.offsetWidth;
+
+                    saveState(); // Save before modification starts? Or after? Agent says "after". 
+                    // Usually good to save "before" state for undo. 
+                    // But instructions say "Trigger snapshot at interaction END".
+
+                    e.preventDefault();
+                    return;
+                }
+
+                // 2. Check for Delete Button
+                if (e.target.classList.contains('delete-btn')) {
+                    const wrapper = e.target.closest('.comp-wrapper');
+                    wrapper.remove();
+                    selectedEl = null;
+                    saveState(); // Action end
+                    return;
+                }
+
+                // 3. Check for Draggable Wrapper
+                const wrapper = e.target.closest('.comp-wrapper');
+                if (wrapper) {
+                    // If contenteditable, allow focus, don't drag immediately unless clicked on border
+                    if (e.target.getAttribute('contenteditable') === 'true') {
+                        // Clicked on text, let default happen (focus)
+                        selectElement(wrapper);
+                        return;
+                    }
+
+                    isDragging = true;
+                    selectElement(wrapper);
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    initialLeft = wrapper.offsetLeft;
+                    initialTop = wrapper.offsetTop;
+                    e.preventDefault();
+                } else {
+                    // Clicked on empty canvas
+                    if (selectedEl) selectedEl.classList.remove('selected');
+                    selectedEl = null;
+                }
+            });
+
+            // Mouse Move
+            window.addEventListener('mousemove', (e) => {
+                if (isDragging && selectedEl) {
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    selectedEl.style.left = `${initialLeft + dx}px`;
+                    selectedEl.style.top = `${initialTop + dy}px`;
+                }
+
+                if (isResizing && selectedEl) {
+                    const dx = e.clientX - startX;
+                    // Simple scaling logic: 100px move = +0.1 scale (arbitrary sensitivity)
+                    // Better: based on distance relative to center, but let's do simple linear add
+                    const scaleDelta = dx / 200;
+                    const newScale = Math.max(0.1, initialScaleX + scaleDelta);
+                    selectedEl.style.transform = `scale(${newScale})`;
+                }
+            });
+
+            // Mouse Up
+            window.addEventListener('mouseup', () => {
+                if (isDragging || isResizing) {
+                    saveState(); // Snapshot Trigger: Interaction End
+                }
+                isDragging = false;
+                isResizing = false;
+            });
+
+            // Text Edit Blur (Save state when typing finishes)
+            app.addEventListener('focusout', (e) => {
+                if (e.target.getAttribute('contenteditable') === 'true') {
+                    saveState();
+                }
+            });
+
+            // --- Keyboard Shortcuts ---
+            document.addEventListener('keydown', (e) => {
+                // Delete
+                if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEl) {
+                    // Don't delete if editing text
+                    if (document.activeElement.getAttribute('contenteditable') === 'true') return;
+
+                    selectedEl.remove();
+                    selectedEl = null;
+                    saveState();
+                }
+
+                // Undo (Ctrl+Z)
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+            });
+        });
+    </script>
+
+</body>
+
+</html>

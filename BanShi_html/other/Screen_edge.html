@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Story - Clean Bright</title>
+    <style>
+        /* =========================================
+           基础设置
+           ========================================= */
+        * {
+            box-sizing: border-box;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #e0e0e0;
+            /* 外部深灰背景，衬托画布 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            overflow: hidden;
+        }
+
+        /* =========================================
+           画布 (#app) 1920x1080 - 纯色明亮版
+           ========================================= */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+
+            /* --- 修改点：纯色明亮背景 --- */
+            background-color: #fffdf0;
+            /* 暖米白，护眼且明亮 */
+
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.1);
+            /* 轻微投影 */
+            user-select: none;
+        }
+
+        /* =========================================
+           交互组件通用样式
+           ========================================= */
+        .draggable {
+            position: absolute;
+            cursor: grab;
+            transition: box-shadow 0.2s;
+        }
+
+        .draggable:active {
+            cursor: grabbing;
+        }
+
+        /* 选中状态 */
+        .draggable.selected {
+            outline: 3px dashed #3498db;
+            /* 选中时增加一个白色光晕，保证在任何背景下可见 */
+            box-shadow: 0 0 0 5px rgba(52, 152, 219, 0.2);
+            z-index: 1000 !important;
+        }
+
+        /* 缩放手柄 */
+        .resizer {
+            display: none;
+            position: absolute;
+            right: -10px;
+            bottom: -10px;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border: 2px solid #3498db;
+            border-radius: 50%;
+            cursor: se-resize;
+            z-index: 2000;
+        }
+
+        /* 删除按钮 */
+        .delete-btn {
+            display: none;
+            position: absolute;
+            right: -12px;
+            top: -12px;
+            width: 24px;
+            height: 24px;
+            background: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .draggable.selected .resizer,
+        .draggable.selected .delete-btn {
+            display: block;
+        }
+
+        /* =========================================
+           组件样式 (保持视觉风格，适配明亮背景)
+           ========================================= */
+
+        /* 1. 红色书签 */
+        .comp-bookmark {
+            left: 60px;
+            top: 0;
+            width: 70px;
+            height: 140px;
+            background-color: #e74c3c;
+            /* 鲜艳红 */
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            box-shadow: 2px 5px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 600;
+        }
+
+        .comp-bookmark .text {
+            writing-mode: vertical-lr;
+            color: #fff;
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            outline: none;
+        }
+
+        /* 2. Logo */
+        .comp-logo {
+            right: 60px;
+            top: 40px;
+            width: 200px;
+            height: 50px;
+            z-index: 600;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .comp-logo .text {
+            /* 修改点：在明亮背景下，Logo文字改为深色，或者保持带投影的白色/彩色 */
+            color: #2c3e50;
+            font-size: 32px;
+            font-weight: 800;
+            font-style: italic;
+            outline: none;
+        }
+
+        /* 3. 角色：老鼠 */
+        .comp-character {
+            left: 200px;
+            top: 350px;
+            width: 350px;
+            height: 450px;
+            z-index: 550;
+        }
+
+        .character-img {
+            width: 100%;
+            height: 100%;
+            /* SVG 占位图 */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g fill="%23e67e22"><circle cx="50" cy="60" r="30"/><circle cx="30" cy="30" r="15"/><circle cx="70" cy="30" r="15"/></g><path d="M50,90 Q20,90 20,60" stroke="%23d35400" stroke-width="5" fill="none"/><rect x="40" y="50" width="20" height="40" fill="%23c0392b" rx="5"/></svg>');
+            background-repeat: no-repeat;
+            background-position: center bottom;
+            background-size: contain;
+            /* 增加一点投影让角色在纯色背景上更立体 */
+            filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.15));
+        }
+
+        /* 4. 对话框 */
+        .comp-dialog {
+            left: 260px;
+            top: 760px;
+            /* 初始位置 */
+            width: 1400px;
+            height: 260px;
+            z-index: 500;
+
+            background-color: #fff8e1;
+            /* 浅黄信纸色 */
+            border: 4px solid #8d6e63;
+            /* 棕色边框 */
+            border-radius: 24px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+            /* 柔和投影 */
+            padding: 40px 60px;
+            display: flex;
+            align-items: center;
+        }
+
+        .comp-dialog .text {
+            width: 100%;
+            font-size: 38px;
+            line-height: 1.6;
+            color: #3e2723;
+            /* 深褐文字 */
+            font-weight: bold;
+            outline: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="draggable comp-bookmark" style="left:80px; top:0px;">
+            <div class="text" contenteditable="true">博览群书</div>
+            <div class="resizer"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable comp-logo" style="right:60px; top:40px;">
+            <div class="text" contenteditable="true">学而思网校</div>
+            <div class="resizer"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable comp-character" style="left:200px; top:320px;">
+            <div class="character-img"></div>
+            <div class="resizer"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable comp-dialog" style="left: 260px; top: 760px;">
+            <div class="text" contenteditable="true">
+                后来，天气暖和了，弗里斯比夫人带着孩子们搬到了夏屋。蒂莫西的病也治好了。至于尼姆的老鼠呢？也许，他们已经在某个角落里发展起了自己的文明。
+            </div>
+            <div class="resizer"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        (function () {
+            const app = document.getElementById('app');
+            let selectedEl = null;
+
+            // 历史记录配置
+            const historyStack = [];
+            let historyIndex = -1;
+            const MAX_HISTORY = 20;
+
+            // 保存状态
+            function saveState() {
+                setTimeout(() => {
+                    const currentSelected = selectedEl;
+                    if (currentSelected) currentSelected.classList.remove('selected');
+
+                    const html = app.innerHTML;
+
+                    if (historyIndex < historyStack.length - 1) {
+                        historyStack.splice(historyIndex + 1);
+                    }
+
+                    historyStack.push(html);
+                    if (historyStack.length > MAX_HISTORY) historyStack.shift();
+                    else historyIndex++;
+
+                    if (currentSelected) currentSelected.classList.add('selected');
+                }, 0);
+            }
+
+            // 初始化保存
+            saveState();
+
+            // 撤销/重做
+            function undo() {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    app.innerHTML = historyStack[historyIndex];
+                    selectedEl = null;
+                }
+            }
+            function redo() {
+                if (historyIndex < historyStack.length - 1) {
+                    historyIndex++;
+                    app.innerHTML = historyStack[historyIndex];
+                    selectedEl = null;
+                }
+            }
+
+            // 键盘事件
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    e.preventDefault();
+                    if (e.shiftKey) redo(); else undo();
+                }
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                    if (document.activeElement.isContentEditable) return;
+                    if (selectedEl) {
+                        selectedEl.remove();
+                        selectedEl = null;
+                        saveState();
+                    }
+                }
+            });
+
+            // 鼠标交互变量
+            let isDragging = false;
+            let isResizing = false;
+            let startX, startY;
+            let initialRect = {};
+
+            // 获取 scale
+            function getScale(el) {
+                const style = window.getComputedStyle(el);
+                const matrix = new WebKitCSSMatrix(style.transform);
+                return matrix.a;
+            }
+
+            // 鼠标按下
+            app.addEventListener('mousedown', (e) => {
+                // 删除按钮
+                if (e.target.classList.contains('delete-btn')) {
+                    const el = e.target.closest('.draggable');
+                    if (el) {
+                        el.remove();
+                        selectedEl = null;
+                        saveState();
+                    }
+                    return;
+                }
+
+                // 缩放手柄
+                if (e.target.classList.contains('resizer')) {
+                    isResizing = true;
+                    selectedEl = e.target.closest('.draggable');
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    initialRect = { scale: getScale(selectedEl) };
+                    e.stopPropagation();
+                    e.preventDefault();
+                    return;
+                }
+
+                // 组件拖拽
+                const target = e.target.closest('.draggable');
+                if (!target) {
+                    // 点击空白取消选中
+                    if (selectedEl) {
+                        selectedEl.classList.remove('selected');
+                        selectedEl = null;
+                    }
+                    return;
+                }
+
+                // 允许文本编辑
+                if (e.target.isContentEditable && e.target === document.activeElement) return;
+
+                // 选中
+                if (selectedEl && selectedEl !== target) selectedEl.classList.remove('selected');
+                selectedEl = target;
+                selectedEl.classList.add('selected');
+
+                // 准备拖拽
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialRect = {
+                    left: target.offsetLeft,
+                    top: target.offsetTop
+                };
+
+                if (!e.target.isContentEditable) e.preventDefault();
+            });
+
+            // 鼠标移动
+            window.addEventListener('mousemove', (e) => {
+                if (!selectedEl) return;
+
+                if (isDragging) {
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    selectedEl.style.left = (initialRect.left + dx) + 'px';
+                    selectedEl.style.top = (initialRect.top + dy) + 'px';
+                }
+
+                if (isResizing) {
+                    const dx = e.clientX - startX;
+                    const delta = dx * 0.005;
+                    let newScale = Math.max(0.5, Math.min(initialRect.scale + delta, 3.0));
+                    selectedEl.style.transform = `scale(${newScale})`;
+                    selectedEl.style.transformOrigin = 'top left';
+                }
+            });
+
+            // 鼠标抬起
+            window.addEventListener('mouseup', () => {
+                if (isDragging || isResizing) {
+                    isDragging = false;
+                    isResizing = false;
+                    saveState();
+                }
+            });
+
+            // 文本编辑失去焦点
+            app.addEventListener('focusout', (e) => {
+                if (e.target.isContentEditable) saveState();
+            });
+
+        })();
+    </script>
+</body>
+
+</html>

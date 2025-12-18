@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H5 Page Replica - Cat & Dog Story</title>
+    <style>
+        /* ============================
+           1. 全局设置 (Global Setup)
+           ============================ */
+        :root {
+            --c-pink-border: #ff7a8a;
+            --c-pink-bg: #ffe4e8;
+            --c-orange-tag: #ffb347;
+            --c-text-brown: #5d4037;
+            --c-sky-blue: #a3e6ff;
+            --c-grass-green: #85e05c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            /* 默认不可选中，防止拖拽干扰，文字编辑时会自动覆盖 */
+        }
+
+        body {
+            background-color: #222;
+            /* 画布外的深色背景 */
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: "Microsoft YaHei", "Heiti SC", sans-serif;
+        }
+
+        /* 画布容器 */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background-color: #fff;
+            overflow: hidden;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 0.5);
+            /* 模拟背景：蓝天 */
+            background: linear-gradient(to bottom, var(--c-sky-blue) 0%, var(--c-sky-blue) 60%, #fff 100%);
+        }
+
+        /* ============================
+           2. 背景层 (Background Layer)
+           CSS Fallback 用于绘制草地
+           ============================ */
+        .bg-grass {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 45%;
+            background: var(--c-grass-green);
+            border-top-left-radius: 50% 100px;
+            /* 模拟弧形山坡 */
+            border-top-right-radius: 50% 150px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .bg-hill-back {
+            position: absolute;
+            bottom: 0;
+            left: -200px;
+            width: 120%;
+            height: 55%;
+            background: #6ecc45;
+            border-top-left-radius: 60% 200px;
+            border-top-right-radius: 40% 100px;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* ============================
+           3. 组件通用样式 (Component Common)
+           ============================ */
+        .comp {
+            position: absolute;
+            transform-origin: top left;
+            cursor: grab;
+        }
+
+        .comp:active {
+            cursor: grabbing;
+        }
+
+        /* 选中状态：显示虚线框 */
+        .comp.selected {
+            outline: 3px dashed #1890ff;
+            z-index: 9999 !important;
+            /* 选中时临时置顶 */
+        }
+
+        /* 缩放手柄 (Resize Handle) */
+        .resize-handle {
+            position: absolute;
+            right: -12px;
+            bottom: -12px;
+            width: 24px;
+            height: 24px;
+            background: #fff;
+            border: 2px solid #333;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+            z-index: 10000;
+        }
+
+        .comp.selected .resize-handle {
+            display: block;
+        }
+
+        /* 删除按钮 (Delete Button) */
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background: #ff4d4f;
+            color: #fff;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            display: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+        }
+
+        .comp.selected .delete-btn {
+            display: block;
+        }
+
+        /* 文本编辑属性 */
+        [contenteditable="true"] {
+            outline: none;
+            cursor: text;
+            user-select: text;
+        }
+
+        /* ============================
+           4. 具体组件样式 (Specific Components)
+           ============================ */
+
+        /* A. 主文本容器 (Main Text Container) */
+        .c-main-box {
+            width: 1100px;
+            height: 650px;
+            background: #fff;
+            border: 14px solid var(--c-pink-border);
+            border-radius: 40px;
+            box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.1);
+            padding: 80px 60px 50px 80px;
+            font-size: 40px;
+            line-height: 1.8;
+            color: var(--c-text-brown);
+            font-weight: 500;
+            z-index: 100;
+        }
+
+        /* B. 左侧竖排标签 (Sidebar Badge) */
+        .c-sidebar-tag {
+            width: 70px;
+            height: 240px;
+            background: linear-gradient(to bottom, #ff7e5f, #feb47b);
+            border: 4px solid #fff;
+            border-radius: 35px;
+            box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.1);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 150;
+        }
+
+        .v-text {
+            writing-mode: vertical-lr;
+            font-size: 36px;
+            font-weight: bold;
+            letter-spacing: 6px;
+        }
+
+        /* C. 顶部页码标签 (Page Tag) */
+        .c-page-tag {
+            width: 180px;
+            height: 60px;
+            background: var(--c-pink-border);
+            border: 4px solid #fff;
+            border-radius: 30px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            font-weight: bold;
+            z-index: 150;
+        }
+
+        /* D. 顶部标题标签 (Title Tag) */
+        .c-title-tag {
+            width: 240px;
+            height: 70px;
+            background: var(--c-orange-tag);
+            border: 4px solid #fff;
+            border-radius: 35px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            font-weight: bold;
+            z-index: 150;
+        }
+
+        .icon-book {
+            margin-right: 10px;
+            font-size: 32px;
+        }
+
+        /* E. 太阳 (Sun) */
+        .c-sun {
+            width: 160px;
+            height: 160px;
+            background: radial-gradient(circle, #ffeb3b 40%, #fbc02d 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            /* 简单的光芒效果模拟 */
+            box-shadow: 0 0 0 10px rgba(255, 235, 59, 0.3), 0 0 40px #fbc02d;
+            z-index: 50;
+        }
+
+        /* F. 问题气泡 (Question Bubble) */
+        .c-bubble {
+            width: 360px;
+            height: 220px;
+            background: #e0f7fa;
+            border: 5px solid #fff;
+            border-radius: 40px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            color: #006064;
+            font-size: 34px;
+            font-weight: bold;
+            line-height: 1.4;
+            z-index: 200;
+        }
+
+        /* 气泡的小尾巴 */
+        .c-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 60px;
+            border-width: 20px 20px 0;
+            border-style: solid;
+            border-color: #fff transparent;
+            display: block;
+            width: 0;
+        }
+
+        .c-bubble::before {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 65px;
+            border-width: 15px 15px 0;
+            border-style: solid;
+            border-color: #e0f7fa transparent;
+            display: block;
+            width: 0;
+            z-index: 1;
+        }
+
+        /* G. 插画占位 (Illustration Fallback) */
+        /* 由于没有图片链接，使用 CSS 组合简单模拟位置，或者用一个 emoji/文字代表 */
+        .c-illustration-group {
+            width: 400px;
+            height: 250px;
+            /* 只是一个透明容器，实际应该放图 */
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .animal-placeholder {
+            font-size: 150px;
+            filter: drop-shadow(5px 5px 0 rgba(0, 0, 0, 0.1));
+        }
+    </style>
+</head>
+
+<body>
+
+    <div style="transform: scale(0.6); transform-origin: center center;">
+
+        <div id="app">
+
+            <div class="bg-hill-back"></div>
+            <div class="bg-grass"></div>
+
+            <div class="comp c-sun" style="left: 1600px; top: 60px;">
+                <div style="pointer-events: none;">🌞</div>
+                <div class="resize-handle"></div>
+                <div class="delete-btn">X</div>
+            </div>
+
+            <div class="comp c-main-box" style="left: 180px; top: 160px;">
+                <div contenteditable="true">
+                    &nbsp;&nbsp;&nbsp;&nbsp;小猫仔细一看，呀，小狗的一只脚上划了个大口子，正流血呢！小猫赶紧把自己脖子上的缎带解下来，把小狗受伤的脚包上。小猫包得很用心，血一点儿也不流了。<br><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;可是小狗还是站不起来。小狗躺在那儿，闭着眼睛喘气。<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;怎么办呢？
+                </div>
+                <div class="resize-handle"></div>
+                <div class="delete-btn">X</div>
+            </div>
+
+            <div class="comp c-sidebar-tag" style="left: 40px; top: 40px;">
+                <div class="v-text" contenteditable="true">素养拓展</div>
+                <div class="resize-handle"></div>
+                <div class="delete-btn">X</div>
+            </div>
+
+            <div class="comp c-page-tag" style="left: 210px; top: 130px;">
+                <div contenteditable="true">第11页</div>
+                <div class="resize-handle"></div>
+                <div class="delete-btn">X</div>
+            </div>
+
+            <div class="comp c-title-tag" style="left: 420px; top: 120px;">
+                <span class="icon-book">📖</span>
+                <div contenteditable="true">一起读书</div>
+                <div class="resize-handle"></div>
+                <div class="delete-btn">X</div>
+            </div>
+
+            <div class="comp c-bubble" style="left: 1320px; top: 250px;">
+                <div contenteditable="true">
+                    小猫做了什么？<br>
+                    体现了她怎样的特点？
+                </div>
+                <div class="resize-handle"></div>
+                <div class="delete-btn">X</div>
+            </div>
+
+            <div class="comp c-illustration-group" style="left: 650px; top: 780px;">
+                <div class="animal-placeholder">🐶🐱</div>
+                <div class="resize-handle"></div>
+                <div class="delete-btn">X</div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = document.getElementById('app');
+            let historyStack = [];
+            let historyIndex = -1;
+
+            // 状态变量
+            let isDragging = false;
+            let isResizing = false;
+            let currentComp = null;
+            let startX = 0, startY = 0;
+            let initialLeft = 0, initialTop = 0;
+            let initialScale = 1;
+
+            // 初始化历史记录
+            saveHistory();
+
+            // =========================
+            // 事件监听 (Event Listeners)
+            // =========================
+
+            // 1. 鼠标按下 (MouseDown)
+            document.addEventListener('mousedown', (e) => {
+                const target = e.target;
+
+                // 检查是否点击了组件
+                const comp = target.closest('.comp');
+
+                // 如果点击空白处，取消选中
+                if (!comp) {
+                    clearSelection();
+                    return;
+                }
+
+                // 处理删除按钮
+                if (target.classList.contains('delete-btn')) {
+                    deleteComponent(comp);
+                    return;
+                }
+
+                // 选中当前组件
+                selectComponent(comp);
+
+                // 处理缩放手柄
+                if (target.classList.contains('resize-handle')) {
+                    isResizing = true;
+                    startX = e.clientX;
+                    // 计算当前 scale
+                    const style = window.getComputedStyle(comp);
+                    const matrix = new WebKitCSSMatrix(style.transform);
+                    initialScale = matrix.a; // scaleX
+                    e.preventDefault(); // 防止文字被选中
+                }
+                // 处理拖拽 (如果不是在编辑文字)
+                else if (target.getAttribute('contenteditable') !== 'true') {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    initialLeft = parseInt(comp.style.left || 0);
+                    initialTop = parseInt(comp.style.top || 0);
+                }
+            });
+
+            // 2. 鼠标移动 (MouseMove)
+            document.addEventListener('mousemove', (e) => {
+                if (!currentComp) return;
+
+                // 为了抵消外层 div 的 scale(0.6) 缩放影响，鼠标位移需要除以 0.6
+                // 在实际全屏应用中不需要这个除法，或者动态获取外层 scale
+                const viewScale = 0.6;
+
+                if (isDragging) {
+                    const dx = (e.clientX - startX) / viewScale;
+                    const dy = (e.clientY - startY) / viewScale;
+                    currentComp.style.left = `${initialLeft + dx}px`;
+                    currentComp.style.top = `${initialTop + dy}px`;
+                }
+
+                if (isResizing) {
+                    const dx = (e.clientX - startX) / viewScale;
+                    // 简单的缩放算法：向右拖动增加 scale
+                    const newScale = Math.max(0.2, initialScale + (dx / 300));
+                    currentComp.style.transform = `scale(${newScale})`;
+                }
+            });
+
+            // 3. 鼠标抬起 (MouseUp)
+            document.addEventListener('mouseup', () => {
+                if (isDragging || isResizing) {
+                    saveHistory(); // 操作结束，保存状态
+                }
+                isDragging = false;
+                isResizing = false;
+            });
+
+            // 4. 键盘事件 (KeyDown)
+            document.addEventListener('keydown', (e) => {
+                // Delete / Backspace 删除组件
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                    // 确保不是在编辑文字
+                    if (document.activeElement.getAttribute('contenteditable') === 'true') return;
+                    if (currentComp) {
+                        deleteComponent(currentComp);
+                    }
+                }
+
+                // Ctrl+Z 撤销
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    e.preventDefault();
+                    undo();
+                }
+            });
+
+            // 5. 文本编辑完成监听 (Blur)
+            app.addEventListener('focusout', (e) => {
+                if (e.target.getAttribute('contenteditable') === 'true') {
+                    saveHistory();
+                }
+            });
+
+            // =========================
+            // 辅助函数 (Helper Functions)
+            // =========================
+
+            function selectComponent(comp) {
+                clearSelection();
+                comp.classList.add('selected');
+                currentComp = comp;
+            }
+
+            function clearSelection() {
+                document.querySelectorAll('.comp').forEach(el => el.classList.remove('selected'));
+                currentComp = null;
+            }
+
+            function deleteComponent(comp) {
+                comp.remove();
+                currentComp = null;
+                saveHistory();
+            }
+
+            // =========================
+            // 历史记录系统 (History System)
+            // =========================
+            function saveHistory() {
+                // 移除当前指针之后的记录（用于重做逻辑，虽然这里只实现了撤销）
+                if (historyIndex < historyStack.length - 1) {
+                    historyStack = historyStack.slice(0, historyIndex + 1);
+                }
+
+                // 保存 app 的 innerHTML
+                historyStack.push(app.innerHTML);
+                historyIndex++;
+
+                // 限制栈大小
+                if (historyStack.length > 20) {
+                    historyStack.shift();
+                    historyIndex--;
+                }
+            }
+
+            function undo() {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    const prevHTML = historyStack[historyIndex];
+                    app.innerHTML = prevHTML;
+                    // 恢复后重新绑定引用（因为DOM被替换了）
+                    // currentComp 会丢失，需重置
+                    currentComp = null;
+                    // 注意：事件监听是绑定在 document 上的，所以不需要重新绑定
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

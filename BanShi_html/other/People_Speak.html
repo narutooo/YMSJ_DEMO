@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Scene Generator</title>
+    <style>
+        /* --- 基础重置 --- */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        /* --- 核心画布 --- */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #5e1818 0%, #d42c2c 50%, #801616 100%);
+            /* 红墙背景 */
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            transform-origin: center center;
+        }
+
+        /* --- 通用交互类 --- */
+        .draggable {
+            position: absolute;
+            cursor: grab;
+            transition: box-shadow 0.2s;
+        }
+
+        .draggable:active {
+            cursor: grabbing;
+        }
+
+        /* 选中状态 */
+        .selected {
+            outline: 2px dashed #00e5ff;
+            z-index: 9999 !important;
+            /* 选中时临时置顶 */
+        }
+
+        /* 缩放手柄 */
+        .resize-handle {
+            position: absolute;
+            right: -12px;
+            bottom: -12px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+            /* 默认隐藏 */
+            z-index: 10000;
+        }
+
+        .selected .resize-handle {
+            display: block;
+        }
+
+        /* 删除按钮 */
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            display: none;
+            z-index: 10000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .selected .delete-btn {
+            display: block;
+        }
+
+        /* 文本编辑 */
+        [contenteditable="true"] {
+            cursor: text;
+            outline: none;
+        }
+
+        [contenteditable="true"]:focus {
+            cursor: text;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- 视觉组件样式 (CSS Painting) --- */
+
+        /* 1. 屋檐 (Decorative) */
+        .roof-layer {
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 120px;
+            background:
+                radial-gradient(circle at 50% 120%, #2a1010 60%, transparent 61%),
+                linear-gradient(to bottom, #1a0505, #3d1212);
+            background-size: 100px 100px, 100% 100%;
+            background-repeat: repeat-x, no-repeat;
+            z-index: 200;
+            pointer-events: none;
+            /* 背景装饰不可拖动 */
+        }
+
+        /* 2. 灯笼 (Container/Decor) */
+        .lantern {
+            width: 180px;
+            height: 260px;
+            background: radial-gradient(circle, #ffeebb 0%, #ffaa00 60%, #cc5500 100%);
+            border-radius: 40px 40px 60px 60px;
+            box-shadow: 0 0 150px rgba(255, 166, 0, 0.6), inset 0 0 20px rgba(0, 0, 0, 0.2);
+            z-index: 150;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lantern::before {
+            /* 灯笼骨架 */
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .lantern-stand {
+            /* 灯柱 */
+            width: 40px;
+            height: 600px;
+            background: #2b0d0d;
+            border-radius: 10px;
+            z-index: 140;
+        }
+
+        /* 3. 角色占位符 (Images Placeholder) */
+        .char-placeholder {
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 24px;
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* 4. 对话气泡 (Text Container) */
+        .bubble {
+            background: white;
+            border-radius: 40px;
+            padding: 30px 40px;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.2);
+            z-index: 600;
+            font-size: 32px;
+            color: #333;
+            font-weight: bold;
+            line-height: 1.4;
+            min-width: 200px;
+            min-height: 100px;
+        }
+
+        /* 气泡尾巴 */
+        .bubble::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+
+        /* 左侧气泡尾巴 */
+        .bubble-left::after {
+            bottom: -20px;
+            right: 40px;
+            border-width: 20px 20px 0 0;
+            border-color: white transparent transparent transparent;
+        }
+
+        /* 右侧气泡尾巴 */
+        .bubble-right::after {
+            bottom: 40%;
+            left: -20px;
+            border-width: 0 20px 20px 0;
+            border-color: transparent white transparent transparent;
+        }
+
+        /* 5. 侧栏徽章 */
+        .badge {
+            width: 60px;
+            height: 180px;
+            background: #e63939;
+            border-radius: 0 0 30px 30px;
+            color: white;
+            writing-mode: vertical-rl;
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            padding-top: 20px;
+            letter-spacing: 5px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+            z-index: 800;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="roof-layer" style="position: absolute;"></div>
+
+        <div class="draggable lantern-stand"
+            style="top: 400px; left: 1600px; width: 30px; height: 700px; z-index: 100;">
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable lantern" style="top: 250px; left: 1525px; width: 180px; height: 240px; z-index: 110;">
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable badge" style="top: 0px; left: 50px; z-index: 800;">
+            <div contenteditable="true">博览群书</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable char-placeholder"
+            style="top: 480px; left: 150px; width: 450px; height: 600px; z-index: 300;">
+            <span>角色素材位 (左)</span>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable char-placeholder"
+            style="top: 250px; left: 650px; width: 550px; height: 830px; z-index: 290;">
+            <span>角色素材位 (右)</span>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable bubble bubble-left"
+            style="top: 150px; left: 180px; width: 400px; height: auto; z-index: 600;">
+            <div contenteditable="true">好，我一定会去<br>看你的！</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable bubble bubble-right"
+            style="top: 550px; left: 950px; width: 500px; height: auto; z-index: 600;">
+            <div contenteditable="true">这里戒备森严，你们<br>想出去不容易，<br>跟我来吧！</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+    </div>
+
+    <script>
+        const app = document.getElementById('app');
+        let historyStack = [];
+        const MAX_HISTORY = 20;
+
+        // --- 历史记录系统 ---
+        function saveState() {
+            if (historyStack.length >= MAX_HISTORY) historyStack.shift();
+            historyStack.push(app.innerHTML);
+        }
+
+        // 初始化保存一次
+        saveState();
+
+        function undo() {
+            if (historyStack.length > 1) {
+                historyStack.pop(); // 移除当前状态
+                const prevState = historyStack[historyStack.length - 1];
+                app.innerHTML = prevState;
+                // innerHTML 替换后，事件委托依然有效，因为绑定在 app 上
+            }
+        }
+
+        // 监听 Ctrl+Z
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+            // 监听 Delete / Backspace
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selected = app.querySelector('.selected');
+                if (selected && !e.target.isContentEditable) { // 编辑文字时不删除
+                    saveState();
+                    selected.remove();
+                }
+            }
+        });
+
+        // --- 交互逻辑 (事件委托) ---
+        let activeEl = null;
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY;
+        let initialLeft, initialTop, initialScale = 1;
+
+        app.addEventListener('mousedown', (e) => {
+            // 0. 清除其他选中状态
+            const prevSelected = app.querySelector('.selected');
+            if (prevSelected && !e.target.closest('.selected')) {
+                prevSelected.classList.remove('selected');
+            }
+
+            // 1. 处理删除按钮
+            if (e.target.classList.contains('delete-btn')) {
+                saveState();
+                e.target.closest('.draggable').remove();
+                return;
+            }
+
+            // 2. 处理缩放手柄
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                activeEl = e.target.closest('.draggable');
+                startX = e.clientX;
+                startY = e.clientY;
+
+                // 获取当前 scale
+                const style = window.getComputedStyle(activeEl);
+                const matrix = new WebKitCSSMatrix(style.transform);
+                initialScale = matrix.a; // scaleX
+
+                e.preventDefault();
+                return;
+            }
+
+            // 3. 处理拖拽 (排除 contenteditable)
+            const draggable = e.target.closest('.draggable');
+            if (draggable && !e.target.isContentEditable) {
+                isDragging = true;
+                activeEl = draggable;
+
+                // 选中当前元素
+                activeEl.classList.add('selected');
+
+                // 记录初始位置
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = draggable.offsetLeft;
+                initialTop = draggable.offsetTop;
+            }
+        });
+
+        // 全局移动监听
+        window.addEventListener('mousemove', (e) => {
+            if (!activeEl) return;
+
+            if (isDragging) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                activeEl.style.left = `${initialLeft + dx}px`;
+                activeEl.style.top = `${initialTop + dy}px`;
+            } else if (isResizing) {
+                const dx = e.clientX - startX;
+                // 简单缩放逻辑：根据X轴移动距离计算缩放比例
+                const scaleDelta = dx * 0.005;
+                const newScale = Math.max(0.1, initialScale + scaleDelta);
+                activeEl.style.transform = `scale(${newScale})`;
+                activeEl.style.transformOrigin = 'top left';
+            }
+        });
+
+        // 交互结束
+        window.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) {
+                saveState(); // 操作结束，保存快照
+            }
+            isDragging = false;
+            isResizing = false;
+            activeEl = null;
+        });
+
+        // 文本编辑结束监听 (Blur)
+        app.addEventListener('focusout', (e) => {
+            if (e.target.isContentEditable) {
+                saveState();
+            }
+        });
+
+        // 适配窗口大小 (可选，保持16:9居中)
+        function fitScreen() {
+            const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+            app.style.transform = `scale(${scale * 0.9})`;
+        }
+        window.addEventListener('resize', fitScreen);
+        fitScreen();
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Layout - Journey to the West</title>
+    <style>
+        /* =========================================
+           RESET & BASIC SETUP
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            /* Default no selection for dragging */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Kaiti", "STKaiti", "Songti SC", serif;
+            /* Chinese Calligraphy Style */
+            overflow: hidden;
+        }
+
+        /* =========================================
+           CANVAS (#app) - 1920x1080 Fixed
+           ========================================= */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background-color: #fff;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            /* Creating the Fallback Background Art using CSS Gradients */
+            background:
+                radial-gradient(circle at 50% 50%, rgba(255, 255, 230, 0.6) 0%, rgba(255, 255, 255, 0) 50%),
+                linear-gradient(135deg, #f9d423 0%, #ff4e50 100%) bottom left / 50% 50% no-repeat,
+                linear-gradient(45deg, #11998e 0%, #38ef7d 100%) top right / 100% 100% no-repeat;
+            background-size: cover;
+        }
+
+        /* Simulating the Bamboo/Nature feel with an overlay */
+        #app::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiPjxmaWx0ZXIgaWQ9Im4iPjxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjUiIHN0aXRjaFRpbGVzPSJzdGl0Y2giLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ0cmFuc3BhcmVudCIvPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNuKSIgb3BhY2l0eT0iMC4xIi8+PC9zdmc+');
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* =========================================
+           COMPONENT BASE STYLES
+           ========================================= */
+        .component {
+            position: absolute;
+            transform-origin: top left;
+            cursor: grab;
+            transition: box-shadow 0.2s, border 0.2s;
+        }
+
+        .component:active {
+            cursor: grabbing;
+        }
+
+        /* Selected State */
+        .component.selected {
+            outline: 2px dashed #1890ff;
+            z-index: 2000 !important;
+            /* Temporarily bring to top when editing */
+        }
+
+        /* Resize Handle */
+        .resize-handle {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #1890ff;
+            border-radius: 50%;
+            right: -12px;
+            bottom: -12px;
+            cursor: nwse-resize;
+            display: none;
+            z-index: 2001;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .component.selected .resize-handle {
+            display: block;
+        }
+
+        /* Delete Button */
+        .delete-btn {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: #ff4d4f;
+            color: white;
+            border-radius: 50%;
+            top: -12px;
+            right: -12px;
+            text-align: center;
+            line-height: 22px;
+            font-size: 16px;
+            font-family: Arial, sans-serif;
+            cursor: pointer;
+            display: none;
+            z-index: 2001;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .component.selected .delete-btn {
+            display: block;
+        }
+
+        /* Text Editing */
+        [contenteditable="true"] {
+            outline: none;
+            cursor: text;
+        }
+
+        [contenteditable="true"]:focus {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* =========================================
+           SPECIFIC COMPONENT STYLES (Visual Match)
+           ========================================= */
+
+        /* 1. Main Container (Glass Box) */
+        .bg-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        /* 2. Badge (Sidebar) "开卷有益" */
+        .badge-sidebar {
+            background: linear-gradient(to bottom, #ff7875, #d9363e);
+            border-radius: 50px;
+            border: 3px solid #fff;
+            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+            color: #fff;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: 8px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 3. Logo Text */
+        .logo-text {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            font-family: sans-serif;
+        }
+
+        /* 4. List Items (Inside Card) */
+        .list-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            pointer-events: none;
+            /* Let parent handle drag usually, but spec says components. We make this part of the card HTML for simplicity, or separate. I will put them inside the card HTML for grouping. */
+        }
+
+        .list-num {
+            background-color: #ff4d4f;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            margin-right: 20px;
+            flex-shrink: 0;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            border: 2px solid white;
+        }
+
+        .list-text {
+            color: #333;
+            font-size: 24px;
+            line-height: 1.6;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+
+        <div class="component logo-text"
+            style="top: 40px; left: 1650px; width: 200px; height: 50px; z-index: 800; font-size: 24px;" data-x="1650"
+            data-y="40" data-scale="1">
+            <div contenteditable="true">学而思网校</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component badge-sidebar"
+            style="top: 50px; left: 50px; width: 80px; height: 300px; z-index: 600; font-size: 32px;" data-x="50"
+            data-y="50" data-scale="1">
+            <div contenteditable="true">开卷有益</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component bg-card" style="top: 180px; left: 200px; width: 1520px; height: 720px; z-index: 200;"
+            data-x="200" data-y="180" data-scale="1">
+
+            <div style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+                <div class="list-item">
+                    <div class="list-num">1</div>
+                    <div class="list-text" contenteditable="true">
+                        掌握《西游记》的重要文学常识，拓展《西游记》的成书过程，拓展玄奘取经的历史故事，感受历史与小说的不同
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div class="list-num">2</div>
+                    <div class="list-text" contenteditable="true">
+                        梳理孙悟空从出世到被压五指山的故事清洁，梳理唐僧收服三个徒弟的故事情节，感受师徒四人的形象
+                    </div>
+                </div>
+
+                <div class="list-item">
+                    <div class="list-num">3</div>
+                    <div class="list-text" contenteditable="true">
+                        联系自身，深入认识孙悟空的自由个性，初步谈谈团队合作对成长的意义
+                    </div>
+                </div>
+            </div>
+
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * Generic Interactive HTML Generator Logic
+         * Features: Drag, Resize, Edit, Undo/Redo, Delete
+         */
+
+        const app = document.getElementById('app');
+        let selectedElement = null;
+        let historyStack = [];
+        let isUndo = false;
+
+        // --- History System ---
+        function saveState() {
+            if (isUndo) return;
+            // Limit stack size
+            if (historyStack.length > 20) historyStack.shift();
+            historyStack.push(app.innerHTML);
+        }
+
+        // Initial save
+        saveState();
+
+        document.addEventListener('keydown', (e) => {
+            // Undo: Ctrl+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (historyStack.length > 1) {
+                    isUndo = true;
+                    historyStack.pop(); // Remove current state
+                    const prevState = historyStack[historyStack.length - 1];
+                    app.innerHTML = prevState;
+                    selectedElement = null; // Reset selection on undo
+                    // Re-bind is handled via delegation, no need to re-attach
+                    setTimeout(() => isUndo = false, 50);
+                }
+            }
+
+            // Delete: Backspace or Delete
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElement) {
+                // Only delete if not editing text
+                const isEditing = document.activeElement.isContentEditable;
+                if (!isEditing) {
+                    selectedElement.remove();
+                    selectedElement = null;
+                    saveState();
+                }
+            }
+        });
+
+        // --- Interaction Logic (Delegation) ---
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY;
+        let initialLeft, initialTop; // For Drag
+        let initialScale, initialWidth, initialHeight; // For Resize
+
+        // Helper: Get numeric translate/scale values
+        function getTransform(el) {
+            return {
+                x: parseFloat(el.dataset.x || 0),
+                y: parseFloat(el.dataset.y || 0),
+                scale: parseFloat(el.dataset.scale || 1)
+            };
+        }
+
+        // Helper: Set transform
+        function setTransform(el, x, y, scale) {
+            el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+            el.dataset.x = x;
+            el.dataset.y = y;
+            el.dataset.scale = scale;
+        }
+
+        // 1. Mouse Down (Select / Start Drag / Start Resize)
+        app.addEventListener('mousedown', (e) => {
+            // Clear selection if clicking blank area
+            if (e.target === app) {
+                if (selectedElement) selectedElement.classList.remove('selected');
+                selectedElement = null;
+                return;
+            }
+
+            // Check if clicking Delete Button
+            if (e.target.classList.contains('delete-btn')) {
+                const component = e.target.closest('.component');
+                if (component) {
+                    component.remove();
+                    saveState();
+                }
+                return;
+            }
+
+            // Find closest component
+            const component = e.target.closest('.component');
+            if (!component) return;
+
+            // Handle Selection
+            if (selectedElement && selectedElement !== component) {
+                selectedElement.classList.remove('selected');
+            }
+            selectedElement = component;
+            selectedElement.classList.add('selected');
+
+            // Check if Resizing
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                startX = e.clientX;
+                const t = getTransform(component);
+                initialScale = t.scale;
+                e.preventDefault(); // Stop text selection
+                e.stopPropagation();
+            }
+            // Check if Dragging (and NOT editing text)
+            else if (!e.target.isContentEditable) {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                const t = getTransform(component);
+                initialLeft = t.x; // Use transform X
+                initialTop = t.y;  // Use transform Y
+            }
+        });
+
+        // 2. Mouse Move
+        window.addEventListener('mousemove', (e) => {
+            if (!selectedElement) return;
+
+            if (isDragging) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                const currentScale = parseFloat(selectedElement.dataset.scale || 1);
+
+                // Update specific transform X/Y
+                setTransform(selectedElement, initialLeft + dx, initialTop + dy, currentScale);
+            }
+
+            if (isResizing) {
+                const dx = e.clientX - startX;
+                // Simple scaling logic based on width increase
+                // Sensitivity: 1px movement = 0.005 scale
+                const newScale = Math.max(0.1, initialScale + (dx * 0.002));
+
+                const t = getTransform(selectedElement);
+                setTransform(selectedElement, t.x, t.y, newScale);
+            }
+        });
+
+        // 3. Mouse Up
+        window.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) {
+                isDragging = false;
+                isResizing = false;
+                saveState(); // Record state after interaction
+            }
+        });
+
+        // 4. Text Edit Blur (Save state after typing)
+        app.addEventListener('focusout', (e) => {
+            if (e.target.isContentEditable) {
+                saveState();
+            }
+        });
+
+    </script>
+</body>
+
+</html>

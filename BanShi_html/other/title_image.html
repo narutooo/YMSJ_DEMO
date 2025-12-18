@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Canvas Generated</title>
+    <style>
+        /* =========================================
+           全局重置与画布设定
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Microsoft YaHei", sans-serif;
+            overflow: hidden;
+        }
+
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1008px;
+            background-color: #4facfe;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.2);
+            /* 明亮的浅海洞穴风格 */
+            background-image:
+                radial-gradient(circle at 50% 55%, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 50%),
+                radial-gradient(circle at 50% 120%, #76ff03 0%, #00e5ff 30%, #2979ff 60%, #1565c0 90%, #0d47a1 100%);
+        }
+
+        /* =========================================
+           组件通用样式
+           ========================================= */
+        .component {
+            position: absolute;
+            cursor: grab;
+            transform-origin: top left;
+            z-index: 500;
+        }
+
+        .component:active {
+            cursor: grabbing;
+        }
+
+        .component.selected {
+            outline: 2px dashed rgba(255, 255, 255, 0.8);
+        }
+
+        [contenteditable="true"] {
+            cursor: text;
+            outline: none;
+        }
+
+        /* =========================================
+           特定组件样式
+           ========================================= */
+
+        /* 左上角标签 */
+        .badge-red {
+            background: #ff4757;
+            color: white;
+            padding: 20px 10px;
+            border-radius: 0 0 20px 20px;
+            font-weight: bold;
+            font-size: 24px;
+            text-align: center;
+            writing-mode: vertical-rl;
+            letter-spacing: 5px;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 右上角水印 */
+        .watermark {
+            color: rgba(255, 255, 255, 1);
+            font-size: 32px;
+            font-weight: 500;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 核心大标题样式 */
+        .title-style {
+            font-family: "Arial Black", "Heiti SC", sans-serif;
+            font-weight: 900;
+            color: #ffcc00;
+            line-height: 1.2;
+            -webkit-text-stroke: 12px #0044aa;
+            paint-order: stroke fill;
+            filter: drop-shadow(0 5px 0px rgba(0, 0, 0, 0.15));
+            white-space: nowrap;
+        }
+
+        /* 修改：移除了 transform: rotate(-3deg); 实现文字摆正 */
+        .main-title-1 {
+            font-size: 160px;
+        }
+
+        .main-title-2 {
+            font-size: 110px;
+        }
+
+        /* =========================================
+           UI 控件
+           ========================================= */
+        .handle {
+            display: none;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            position: absolute;
+            right: -12px;
+            bottom: -12px;
+            cursor: nwse-resize;
+            z-index: 9999;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .delete-btn {
+            display: none;
+            width: 24px;
+            height: 24px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            position: absolute;
+            right: -12px;
+            top: -12px;
+            text-align: center;
+            line-height: 22px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 9999;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .component.selected .handle,
+        .component.selected .delete-btn {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="component" style="top: 600px; left: -50px; z-index: 200;" data-scale="1">
+            <div
+                style="width: 400px; height: 500px; border-radius: 50% 50% 0 0; background: linear-gradient(135deg, #5352ed 0%, #3742fa 80%); box-shadow: 10px 0 20px rgba(0,0,0,0.2);">
+            </div>
+        </div>
+
+        <div class="component" style="top: 500px; left: 1600px; z-index: 200;" data-scale="1">
+            <div
+                style="width: 400px; height: 600px; border-radius: 60% 40% 0 0; background: linear-gradient(-135deg, #ff9f43 0%, #ee5253 80%); box-shadow: -10px 0 20px rgba(0,0,0,0.2);">
+            </div>
+        </div>
+
+        <div class="component" style="top: 0px; left: 80px; z-index: 600;" data-scale="1">
+            <div class="badge-red" contenteditable="true">博览群书</div>
+            <div class="handle"></div>
+            <div class="delete-btn">✕</div>
+        </div>
+
+        <div class="component" style="top: 50px; left: 1650px; z-index: 600;" data-scale="1">
+            <div class="watermark" contenteditable="true">学而思网校</div>
+            <div class="handle"></div>
+            <div class="delete-btn">✕</div>
+        </div>
+
+        <div class="component" style="top: 150px; left: 200px; z-index: 800;" data-scale="1">
+            <h1 class="title-style main-title-1" contenteditable="true">20分钟！</h1>
+            <div class="handle"></div>
+            <div class="delete-btn">✕</div>
+        </div>
+
+        <div class="component" style="top: 550px; left: 500px; z-index: 800;" data-scale="1">
+            <h1 class="title-style main-title-2" contenteditable="true">成功抵达地中海</h1>
+            <div class="handle"></div>
+            <div class="delete-btn">✕</div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================
+        // 核心交互逻辑
+        // =========================================
+        const app = document.getElementById('app');
+        const historyStack = [];
+        let historyIndex = -1;
+        let isDragging = false;
+        let isResizing = false;
+        let startX, startY, initialLeft, initialTop, initialScale;
+        let currentElement = null;
+
+        saveState();
+
+        function saveState() {
+            if (historyIndex < historyStack.length - 1) {
+                historyStack.length = historyIndex + 1;
+            }
+            historyStack.push(app.innerHTML);
+            historyIndex++;
+            if (historyStack.length > 20) {
+                historyStack.shift();
+                historyIndex--;
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    restoreState(historyStack[historyIndex]);
+                }
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selected = document.querySelector('.component.selected');
+                const isEditing = document.activeElement.isContentEditable;
+                if (selected && !isEditing) {
+                    selected.remove();
+                    saveState();
+                }
+            }
+        });
+
+        function restoreState(html) {
+            app.innerHTML = html;
+            currentElement = null;
+        }
+
+        app.addEventListener('mousedown', (e) => {
+            const target = e.target;
+
+            if (target.classList.contains('delete-btn')) {
+                const component = target.closest('.component');
+                if (component) {
+                    component.remove();
+                    saveState();
+                }
+                return;
+            }
+
+            if (target.classList.contains('handle')) {
+                isResizing = true;
+                currentElement = target.closest('.component');
+                startX = e.clientX;
+                startY = e.clientY;
+                initialScale = parseFloat(currentElement.getAttribute('data-scale')) || 1;
+                e.preventDefault();
+                return;
+            }
+
+            const component = target.closest('.component');
+            if (!component) {
+                document.querySelectorAll('.component.selected').forEach(el => el.classList.remove('selected'));
+                return;
+            }
+
+            document.querySelectorAll('.component.selected').forEach(el => el.classList.remove('selected'));
+            component.classList.add('selected');
+            currentElement = component;
+
+            if (target.isContentEditable && document.activeElement === target) {
+                return;
+            }
+
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            initialLeft = component.offsetLeft;
+            initialTop = component.offsetTop;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!currentElement) return;
+
+            if (isDragging) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                currentElement.style.left = `${initialLeft + dx}px`;
+                currentElement.style.top = `${initialTop + dy}px`;
+            } else if (isResizing) {
+                const dx = e.clientX - startX;
+                const newScale = Math.max(0.1, initialScale + dx * 0.005);
+                currentElement.style.transform = `scale(${newScale})`;
+                currentElement.setAttribute('data-scale', newScale);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) {
+                isDragging = false;
+                isResizing = false;
+                saveState();
+            }
+        });
+
+        app.addEventListener('focusout', (e) => {
+            if (e.target.isContentEditable) {
+                saveState();
+            }
+        });
+    </script>
+</body>
+
+</html>
