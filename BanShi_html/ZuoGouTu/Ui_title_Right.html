@@ -4,68 +4,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>H5 Interactive Courseware</title>
+    <title>Courseware Interactive Layout</title>
     <style>
         /* =========================================
-           1. Global Reset & Canvas Setup
+           1. 全局重置与画布设置
            ========================================= */
         * {
             box-sizing: border-box;
             user-select: none;
-            /* Prevent native selection to help drag */
+            /* 防止拖拽时选中文本，编辑模式例外 */
         }
 
-        body {
+        body,
+        html {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
             background-color: #333;
-            /* Dark outside canvas */
+            /* 画布外的深色背景 */
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: "KaiTi", "STKaiti", "SimKai", serif;
-            /* Match the storybook feel */
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
         }
 
+        /* 1920x1080 固定画布 */
         #app {
             position: relative;
             width: 1920px;
             height: 1080px;
-            background-color: #fff;
+            background: linear-gradient(to bottom, #FF6B6B 0%, #FFD93D 40%, #FF9F1C 70%, #6D4C41 100%);
+            /* 模拟晚霞背景 */
             overflow: hidden;
             box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-            /* Fallback Background: Sunset Gradient based on reference */
-            background: linear-gradient(180deg,
-                    #FF6B6B 0%,
-                    #FF8E53 30%,
-                    #FFD700 60%,
-                    #DAA520 75%,
-                    #8B4513 100%);
-            transform-origin: center center;
         }
 
         /* =========================================
-           2. Component Base Styles
+           2. 组件通用样式 (交互核心)
            ========================================= */
-        .component {
+        .comp {
             position: absolute;
-            cursor: move;
             transform-origin: top left;
+            /* 缩放基准点 */
+            cursor: move;
         }
 
-        /* Selected State */
-        .component.selected {
+        /* 选中状态 */
+        .comp.selected {
             outline: 2px dashed #0099ff;
-            z-index: 9999 !important;
-            /* Temporarily bring to top for edit, or keep layer? Agent says don't change z-index. Keeping layout z-index. */
+            z-index: 1000 !important;
+            /* 临时置顶 */
         }
 
-        /* Specific Fix: Agent says "Strictly prohibited to change z-index on click". 
-           We interpret .selected visual cue as an overlay or outline only. */
-
-        /* Delete Button (Visible only when selected) */
+        /* 删除按钮 (选中时显示) */
         .delete-btn {
             position: absolute;
             top: -15px;
@@ -78,140 +70,138 @@
             text-align: center;
             line-height: 28px;
             font-weight: bold;
-            font-family: sans-serif;
+            font-family: Arial, sans-serif;
             cursor: pointer;
             display: none;
-            z-index: 10001;
-            font-size: 16px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+            /* 确保能点到 */
         }
 
-        .component.selected .delete-btn {
+        .comp.selected .delete-btn {
             display: block;
         }
 
-        /* Resize Handle (Visible always or selected? Agent implies distinct handle) */
-        .resize-handle {
+        /* 缩放手柄 (选中时显示) */
+        .resizer {
             position: absolute;
             bottom: -10px;
             right: -10px;
             width: 24px;
             height: 24px;
-            background-color: white;
-            border: 2px solid #333;
+            background: white;
+            border: 2px solid #0099ff;
             border-radius: 50%;
-            cursor: nwse-resize;
-            z-index: 10002;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            /* Hide handle if not selected to keep canvas pure? Agent says "must have a handle". We keep it subtle. */
-            opacity: 0;
-            transition: opacity 0.2s;
+            cursor: se-resize;
+            display: none;
+            pointer-events: auto;
         }
 
-        .component:hover .resize-handle,
-        .component.selected .resize-handle {
-            opacity: 1;
+        .comp.selected .resizer {
+            display: block;
         }
 
-        /* Text Editing Override */
+        /* 文本编辑模式 */
         [contenteditable="true"] {
             cursor: text;
-            outline: none;
             user-select: text;
         }
 
-        /* =========================================
-           3. Specific Visual Styles (CSS Painting)
-           ========================================= */
-
-        /* Scenery Elements (Grass/Hills) */
-        .decor-hill {
-            background: #8B4513;
-            border-radius: 50% 50% 0 0;
-            opacity: 0.8;
-            pointer-events: none;
-            /* Background elements usually static, but we make them draggable per request */
+        [contenteditable="true"]:focus {
+            outline: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            /* 编辑时微弱高亮 */
         }
 
-        /* Main White Container */
-        .main-card {
+        /* =========================================
+           3. 视觉还原样式 (根据参考图)
+           ========================================= */
+
+        /* 白色主容器 */
+        .card-container {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 40px;
-            box-shadow: 0 20px 60px rgba(139, 69, 19, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             padding: 60px;
             display: flex;
             flex-direction: column;
         }
 
-        /* Text Styles inside Card */
-        .card-text {
+        /* 左上角标签 */
+        .badge {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4A90E2;
+            letter-spacing: 2px;
+            background: transparent;
+        }
+
+        /* 正文内容 */
+        .story-text {
             font-size: 38px;
             line-height: 1.8;
-            color: #2c1a0e;
+            color: #333;
             font-weight: 500;
+            text-align: justify;
         }
 
-        .underline-gap {
-            display: inline-block;
-            width: 200px;
-            border-bottom: 3px solid #2c1a0e;
-        }
-
-        /* Header Tag (Blue Pill) */
-        .header-tag {
-            background: white;
-            /* The image shows it's actually white text with blue outline or similar. Let's do Blue Text style */
-            color: #4a90e2;
-            font-weight: 900;
-            font-size: 32px;
-            font-family: sans-serif;
-            text-shadow: 2px 2px 0px #fff;
-        }
-
-        /* Buttons */
-        .btn-pill {
-            border-radius: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 32px;
+        /* 填空下划线 */
+        .underline {
+            text-decoration: underline;
+            text-underline-offset: 8px;
             font-weight: bold;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-            text-align: center;
-            padding: 0 20px;
         }
 
+        /* 红色/粉色 按钮 */
         .btn-red {
-            background: linear-gradient(90deg, #ff7e7e, #ff4d4d);
-        }
-
-        .btn-blue {
-            background: linear-gradient(90deg, #5ec3ff, #4a90e2);
-        }
-
-        /* Lion Placeholder (Since no asset provided) */
-        .lion-asset {
-            background: transparent;
+            background: linear-gradient(90deg, #FF758C 0%, #FF7EB3 100%);
+            border-radius: 50px;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 300px;
-            /* Huge Emoji as placeholder */
-            filter: drop-shadow(10px 10px 20px rgba(0, 0, 0, 0.5));
-            pointer-events: none;
-            /* Usually allow click through, but wrapper is draggable */
+            box-shadow: 0 5px 15px rgba(255, 117, 140, 0.4);
         }
 
-        /* Logo */
-        .logo-area {
+        /* 蓝色 按钮 */
+        .btn-blue {
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 50px;
             color: white;
-            font-family: sans-serif;
+            font-size: 32px;
             font-weight: bold;
-            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+
+        /* LOGO */
+        .logo {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
             display: flex;
             align-items: center;
             gap: 10px;
-            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 狮子占位符 (没有素材图，用CSS模拟) */
+        .lion-character {
+            background: transparent;
+            /* 实际上这里应该放 img，如果没有图，就用 div 结构模拟 */
+        }
+
+        .lion-img-mock {
+            width: 100%;
+            height: 100%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="80" font-size="80">🦁</text></svg>');
+            background-repeat: no-repeat;
+            background-size: contain;
+            filter: drop-shadow(5px 5px 10px rgba(0, 0, 0, 0.3));
         }
     </style>
 </head>
@@ -219,255 +209,204 @@
 <body>
 
     <div id="app">
-        <div class="component decor-hill" style="top: 800px; left: -100px; width: 600px; height: 400px; z-index: 50;">
-        </div>
-        <div class="component decor-hill"
-            style="top: 850px; left: 1400px; width: 600px; height: 400px; z-index: 50; background: #654321;"></div>
 
-        <div class="component" style="top: 100px; left: 180px; width: 1400px; height: 850px; z-index: 100;">
-            <div class="main-card" style="width: 100%; height: 100%;">
-                <div contenteditable="true"
-                    style="position: absolute; top: -30px; left: 40px; background: white; padding: 10px 30px; border-radius: 30px; color: #4a90e2; font-weight: bold; font-size: 32px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
-                    第四册 第12页
-                </div>
-
-                <div class="card-text" contenteditable="true" style="margin-top: 40px;">
-                    <p style="text-indent: 2em; margin-bottom: 20px;">
-                        赫拉克勒斯身手敏捷，闪电般地一躲，巨狮扑了个空。这下可激怒了这头凶猛的怪兽，它扭转身子，浑身毛发竖立，甩着大尾巴再一次向赫拉克勒斯袭来。赫拉克勒斯机智地借助狮体移动产生的旋风，两脚一蹬，升到了半空，然后他举起木棍，<span
-                            class="underline-gap"></span>。木棍被打断，巨狮也被打得昏了头脑，四脚一软，瘫在了地上。
-                    </p>
-                </div>
+        <div class="comp" style="top: 700px; left: -50px; width: 400px; height: 400px; z-index: 50;">
+            <div
+                style="width:100%; height:100%; background: #5D4037; border-radius: 50%; opacity: 0.8; filter: blur(20px);">
             </div>
-            <div class="resize-handle"></div>
-            <div class="delete-btn">X</div>
+        </div>
+        <div class="comp" style="top: 750px; left: 1600px; width: 500px; height: 400px; z-index: 50;">
+            <div
+                style="width:100%; height:100%; background: #3E2723; border-radius: 40%; opacity: 0.8; filter: blur(30px);">
+            </div>
         </div>
 
-        <div class="component" style="top: 720px; left: 350px; width: 700px; height: 80px; z-index: 501;">
-            <div class="btn-pill btn-red" style="width: 100%; height: 100%;" contenteditable="true">
-                这头凶猛的怪兽被激怒后做了什么？
-            </div>
-            <div class="resize-handle"></div>
-            <div class="delete-btn">X</div>
+        <div class="comp logo" style="top: 40px; right: 60px; width: 200px; height: 50px; z-index: 800;">
+            <span contenteditable="true">🎓 学而思网校</span>
         </div>
 
-        <div class="component" style="top: 830px; left: 450px; width: 500px; height: 80px; z-index: 502;">
-            <div class="btn-pill btn-blue" style="width: 100%; height: 100%;" contenteditable="true">
-                赫拉克勒斯会如何应对呢？
+        <div class="comp card-container" style="top: 80px; left: 140px; width: 1300px; height: 860px; z-index: 100;">
+
+            <div class="badge" contenteditable="true" style="margin-bottom: 30px;">
+                第四册 &nbsp;第12页
             </div>
-            <div class="resize-handle"></div>
+
+            <div class="story-text" contenteditable="true">
+                <p style="margin-top: 0;">
+                    赫拉克勒斯身手敏捷，闪电般地一躲，巨狮扑了个空。这下可激怒了这头凶猛的怪兽，它扭转身子，浑身毛发竖立，甩着大尾巴再一次向赫拉克勒斯袭来。赫拉克勒斯机智地借助狮体移动产生的旋风，两脚一蹬，升到了半空，然后他举起木棍，<span
+                        class="underline">__________________</span>。木棍被打断，巨狮也被打得昏了头脑，四脚一软，瘫在了地上。</p>
+            </div>
+
             <div class="delete-btn">X</div>
+            <div class="resizer"></div>
         </div>
 
-        <div class="component" style="top: 650px; left: 1350px; width: 400px; height: 400px; z-index: 600;">
-            <div class="lion-asset" style="width: 100%; height: 100%;">
-                🦁
-            </div>
-            <div class="resize-handle"></div>
+        <div class="comp btn-red" style="top: 700px; left: 260px; width: 680px; height: 80px; z-index: 500;">
+            <span contenteditable="true">这头凶猛的怪兽被激怒后做了什么？</span>
             <div class="delete-btn">X</div>
+            <div class="resizer"></div>
         </div>
 
-        <div class="component" style="top: 40px; left: 1700px; width: 200px; height: 50px; z-index: 800;">
-            <div class="logo-area" contenteditable="true" style="width: 100%; height: 100%;">
-                🎓 学而思网校
-            </div>
-            <div class="resize-handle"></div>
+        <div class="comp btn-blue" style="top: 800px; left: 360px; width: 480px; height: 80px; z-index: 500;">
+            <span contenteditable="true">赫拉克勒斯会如何应对呢？</span>
             <div class="delete-btn">X</div>
+            <div class="resizer"></div>
+        </div>
+
+        <div class="comp lion-character" style="top: 620px; left: 1300px; width: 350px; height: 450px; z-index: 600;">
+            <div class="lion-img-mock"></div>
+            <div class="delete-btn">X</div>
+            <div class="resizer"></div>
         </div>
 
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const app = document.getElementById('app');
-            const historyStack = [];
-            let historyIndex = -1;
-            const MAX_HISTORY = 20;
+        /* =========================================
+           4. 交互逻辑 (Interaction Specs)
+           ========================================= */
 
-            // --- History System ---
-            function saveState() {
-                // If we are in the middle of the stack, truncate future
-                if (historyIndex < historyStack.length - 1) {
-                    historyStack.length = historyIndex + 1;
-                }
-                historyStack.push(app.innerHTML);
-                if (historyStack.length > MAX_HISTORY) historyStack.shift();
-                else historyIndex++;
-                console.log('State Saved. Index:', historyIndex);
+        const app = document.getElementById('app');
+        let historyStack = [];
+        const MAX_HISTORY = 20;
+
+        // --- 历史记录系统 ---
+        function saveState() {
+            // 深拷贝当前的 innerHTML
+            if (historyStack.length >= MAX_HISTORY) historyStack.shift();
+            historyStack.push(app.innerHTML);
+        }
+
+        function undo() {
+            if (historyStack.length > 0) {
+                const previousState = historyStack.pop();
+                // 在恢复前再存一次当前状态到 redo 栈 (这里简化为单向撤销，恢复上一帧)
+                // 实际操作：直接替换 HTML
+                app.innerHTML = previousState;
             }
+        }
 
-            // Initial Save
-            saveState();
+        // 初始化：保存第一帧
+        saveState();
 
-            function restoreState(index) {
-                if (index >= 0 && index < historyStack.length) {
-                    app.innerHTML = historyStack[index];
-                    historyIndex = index;
+        // 监听键盘撤销 (Ctrl+Z) 和 删除 (Delete)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selected = document.querySelector('.comp.selected');
+                // 如果焦点不在文字编辑中，才删除组件
+                const isEditing = document.activeElement.isContentEditable;
+                if (selected && !isEditing) {
+                    saveState(); // 动作前保存
+                    selected.remove();
                 }
             }
-
-            // Global Undo/Redo Keys
-            document.addEventListener('keydown', (e) => {
-                // Delete
-                if (e.key === 'Delete' || e.key === 'Backspace') {
-                    // Only delete if not editing text
-                    const activeElement = document.activeElement;
-                    const isEditing = activeElement.isContentEditable;
-
-                    if (!isEditing) {
-                        const selected = app.querySelector('.selected');
-                        if (selected) {
-                            selected.remove();
-                            saveState();
-                        }
-                    }
-                }
-
-                // Undo: Ctrl+Z
-                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (historyIndex > 0) {
-                        restoreState(historyIndex - 1);
-                    }
-                }
-                // Redo: Ctrl+Y or Ctrl+Shift+Z
-                if (((e.ctrlKey || e.metaKey) && e.key === 'y') ||
-                    ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) {
-                    e.preventDefault();
-                    if (historyIndex < historyStack.length - 1) {
-                        restoreState(historyIndex + 1);
-                    }
-                }
-            });
-
-            // --- Interaction Logic (Delegation) ---
-            let isDragging = false;
-            let isResizing = false;
-            let currentElement = null;
-            let startX, startY;
-            let initialLeft, initialTop;
-            let initialWidth, initialHeight;
-            let initialScale = 1;
-
-            // Helper to get scale from transform matrix
-            function getScale(element) {
-                const style = window.getComputedStyle(element);
-                const matrix = new WebKitCSSMatrix(style.transform);
-                return matrix.a; // Scale X
-            }
-
-            // Helper to set scale
-            function setScale(element, scale) {
-                element.style.transform = `scale(${scale})`;
-            }
-
-            // Event Delegation on App
-            app.addEventListener('mousedown', (e) => {
-                // 1. Check for Delete Button
-                if (e.target.classList.contains('delete-btn')) {
-                    const comp = e.target.closest('.component');
-                    if (comp) {
-                        comp.remove();
-                        saveState();
-                    }
-                    return;
-                }
-
-                // 2. Check for Resize Handle
-                if (e.target.classList.contains('resize-handle')) {
-                    isResizing = true;
-                    currentElement = e.target.closest('.component');
-
-                    startX = e.clientX;
-                    startY = e.clientY;
-
-                    const rect = currentElement.getBoundingClientRect();
-                    initialWidth = rect.width; // Visual width
-                    initialScale = getScale(currentElement);
-
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                }
-
-                // 3. Check for Draggable Component
-                const component = e.target.closest('.component');
-
-                // Deselect others
-                if (!e.shiftKey) {
-                    document.querySelectorAll('.component.selected').forEach(el => {
-                        if (el !== component) el.classList.remove('selected');
-                    });
-                }
-
-                if (component) {
-                    // Logic: If clicking ContentEditable, allow focus. If clicking container padding, drag.
-                    // If element is already selected and we click text, edit.
-                    // If element is NOT selected, we select it.
-
-                    component.classList.add('selected');
-                    currentElement = component;
-
-                    // If clicking directly on a text node or contenteditable, don't drag immediately unless it's a "move" intent
-                    // Simple heuristic: If target is explicitly contenteditable, ignore drag.
-                    if (e.target.isContentEditable) {
-                        // Allow text selection/editing
-                        return;
-                    }
-
-                    isDragging = true;
-                    startX = e.clientX;
-                    startY = e.clientY;
-                    initialLeft = component.offsetLeft;
-                    initialTop = component.offsetTop;
-
-                    e.preventDefault(); // Prevent text selection on container
-                } else {
-                    // Clicked background, deselect all
-                    document.querySelectorAll('.component.selected').forEach(el => el.classList.remove('selected'));
-                }
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (isDragging && currentElement) {
-                    const dx = e.clientX - startX;
-                    const dy = e.clientY - startY;
-
-                    // Apply new position
-                    currentElement.style.left = `${initialLeft + dx}px`;
-                    currentElement.style.top = `${initialTop + dy}px`;
-                }
-
-                if (isResizing && currentElement) {
-                    const dx = e.clientX - startX;
-                    // Simple uniform scaling based on horizontal drag
-                    // Sensitivity: 1px drag = 0.005 scale change
-                    const scaleDelta = dx * 0.002;
-                    let newScale = initialScale + scaleDelta;
-
-                    // Min scale limit
-                    if (newScale < 0.2) newScale = 0.2;
-
-                    setScale(currentElement, newScale);
-                }
-            });
-
-            window.addEventListener('mouseup', (e) => {
-                if (isDragging || isResizing) {
-                    saveState(); // Record history on drop/resize end
-                }
-                isDragging = false;
-                isResizing = false;
-                currentElement = null;
-            });
-
-            // Save state on text edit blur
-            app.addEventListener('focusout', (e) => {
-                if (e.target.isContentEditable) {
-                    saveState();
-                }
-            });
-
         });
+
+        // --- 全局事件委托 (Event Delegation) ---
+
+        let isDragging = false;
+        let isResizing = false;
+        let currentEl = null;
+        let startX, startY;
+
+        // 拖拽数据
+        let initialLeft, initialTop;
+
+        // 缩放数据
+        let initialWidth, initialHeight, initialScale;
+
+        // 1. Mouse Down
+        app.addEventListener('mousedown', (e) => {
+            // 如果点击的是删除按钮
+            if (e.target.classList.contains('delete-btn')) {
+                saveState();
+                e.target.closest('.comp').remove();
+                return;
+            }
+
+            // 检查是否点击了组件
+            const comp = e.target.closest('.comp');
+
+            // 点击空白处，取消选中
+            if (!comp) {
+                document.querySelectorAll('.comp.selected').forEach(el => el.classList.remove('selected'));
+                return;
+            }
+
+            // 选中当前组件
+            if (!comp.classList.contains('selected')) {
+                document.querySelectorAll('.comp.selected').forEach(el => el.classList.remove('selected'));
+                comp.classList.add('selected');
+            }
+            currentEl = comp;
+
+            // 检查是否点击了缩放手柄
+            if (e.target.classList.contains('resizer')) {
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+
+                // 获取当前的 scale 值 (matrix解析)
+                const style = window.getComputedStyle(currentEl);
+                const matrix = new WebKitCSSMatrix(style.transform);
+                initialScale = matrix.a; // scaleX
+
+                // 记录原始尺寸用于计算比例，而不是直接改尺寸
+                // 这里为了简化逻辑，我们假设元素初始是以 scale(1) 渲染的 width/height
+                // 实际上缩放是改变 transform: scale
+                return;
+            }
+
+            // 否则是拖拽 (除非点击的是可编辑文本且已经聚焦)
+            if (!e.target.isContentEditable || e.target === comp) {
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = parseInt(currentEl.style.left || 0);
+                initialTop = parseInt(currentEl.style.top || 0);
+            }
+        });
+
+        // 2. Mouse Move
+        window.addEventListener('mousemove', (e) => {
+            if (!currentEl) return;
+
+            if (isDragging) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                currentEl.style.left = `${initialLeft + dx}px`;
+                currentEl.style.top = `${initialTop + dy}px`;
+            } else if (isResizing) {
+                // 简单的缩放逻辑：根据鼠标X轴移动距离调整 Scale
+                const dx = e.clientX - startX;
+                // 灵敏度控制
+                const scaleDelta = dx * 0.002;
+                const newScale = Math.max(0.1, initialScale + scaleDelta);
+                currentEl.style.transform = `scale(${newScale})`;
+            }
+        });
+
+        // 3. Mouse Up
+        window.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) {
+                saveState(); // 操作结束，保存快照
+            }
+            isDragging = false;
+            isResizing = false;
+            currentEl = null;
+        });
+
+        // 监听文本编辑结束 (Blur) 保存状态
+        app.addEventListener('focusout', (e) => {
+            if (e.target.isContentEditable) {
+                saveState();
+            }
+        });
+
     </script>
 </body>
 
