@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Courseware Restore</title>
+    <style>
+        /* 全局重置 */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            /* 防止拖拽时选中文字，编辑时会自动覆盖 */
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #333;
+            /* 画布外背景 */
+        }
+
+        /* 1. 画布基准 1920x1080 */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            margin: 0 auto;
+            background: linear-gradient(180deg, #d63384 0%, #6f42c1 30%, #a8c0ff 60%, #e0eafc 100%);
+            /* 模拟粉色天空到雪地的渐变 */
+            overflow: hidden;
+            transform-origin: top left;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 模拟雪山背景装饰 */
+        .mountain-bg {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40%;
+            background: linear-gradient(0deg, #fff 0%, #e3f2fd 80%, transparent 100%);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 2. 组件通用样式 */
+        .draggable {
+            position: absolute;
+            cursor: grab;
+            transform-origin: top left;
+        }
+
+        .draggable:active {
+            cursor: grabbing;
+        }
+
+        /* 选中状态 */
+        .draggable.selected {
+            outline: 2px dashed #0099ff;
+        }
+
+        /* 缩放手柄 */
+        .resize-handle {
+            position: absolute;
+            right: -12px;
+            bottom: -12px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+            z-index: 9999;
+        }
+
+        .draggable.selected .resize-handle {
+            display: block;
+        }
+
+        /* 删除按钮 */
+        .delete-btn {
+            position: absolute;
+            right: -12px;
+            top: -12px;
+            width: 24px;
+            height: 24px;
+            background: #ff4d4f;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .draggable.selected .delete-btn {
+            display: block;
+        }
+
+        /* 可编辑文本 */
+        [contenteditable="true"] {
+            cursor: text;
+            outline: none;
+            min-height: 1em;
+        }
+
+        /* --- 具体组件样式 (CSS Fallback) --- */
+
+        /* 左侧红色侧边栏 */
+        .sidebar-badge {
+            width: 60px;
+            height: 260px;
+            background: linear-gradient(180deg, #ff6b6b, #ee5253);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+            z-index: 500;
+        }
+
+        .sidebar-text {
+            writing-mode: vertical-lr;
+            font-size: 32px;
+            color: white;
+            font-weight: bold;
+            letter-spacing: 8px;
+            text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        /* 上方提问框 */
+        .question-box {
+            width: 900px;
+            height: 100px;
+            background: #fff;
+            border: 4px solid #48dbfb;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            z-index: 510;
+        }
+
+        .question-text {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            width: 100%;
+        }
+
+        /* 中间内容框 */
+        .content-box {
+            width: 950px;
+            height: 420px;
+            background: linear-gradient(180deg, #fff, #f8f9fa);
+            border: 6px solid #1dd1a1;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            z-index: 500;
+        }
+
+        .content-text {
+            font-size: 34px;
+            line-height: 1.6;
+            color: #2d3436;
+            font-weight: 500;
+        }
+
+        .highlight {
+            color: #d63031;
+            font-weight: bold;
+        }
+
+        /* 底部名言框 */
+        .quote-box {
+            width: 800px;
+            height: 120px;
+            background: #feca57;
+            border: 4px dashed #fff;
+            border-radius: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+            z-index: 520;
+        }
+
+        .quote-text {
+            font-size: 30px;
+            font-weight: bold;
+            color: #2d3436;
+            text-align: center;
+        }
+
+        .quote-author {
+            font-size: 24px;
+            margin-top: 10px;
+            color: #2d3436;
+        }
+
+        /* 人物头像 (CSS模拟) */
+        .character-avatar {
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: #fff;
+            border: 10px solid #fff;
+            box-shadow: 0 0 0 10px #54a0ff, 0 20px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            z-index: 600;
+        }
+
+        .avatar-placeholder {
+            font-size: 200px;
+            line-height: 1;
+        }
+
+        /* 装饰文字 */
+        .decor-text {
+            z-index: 700;
+            font-weight: 900;
+            line-height: 1.2;
+            text-align: center;
+        }
+
+        .decor-text span {
+            display: block;
+        }
+
+        .decor-style-1 {
+            color: #fff;
+            font-size: 40px;
+            text-shadow: 3px 3px 0 #0984e3, -1px -1px 0 #0984e3, 1px -1px 0 #0984e3, -1px 1px 0 #0984e3, 1px 1px 0 #0984e3;
+        }
+
+        .decor-style-2 {
+            color: #fff;
+            font-size: 40px;
+            text-shadow: 3px 3px 0 #e17055, -1px -1px 0 #e17055, 1px -1px 0 #e17055, -1px 1px 0 #e17055, 1px 1px 0 #e17055;
+        }
+
+        .decor-style-3 {
+            color: #fff;
+            font-size: 42px;
+            text-shadow: 3px 3px 0 #00b894, -1px -1px 0 #00b894, 1px -1px 0 #00b894, -1px 1px 0 #00b894, 1px 1px 0 #00b894;
+        }
+
+        /* Logo */
+        .logo {
+            color: #fff;
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            z-index: 800;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="mountain-bg"></div>
+
+        <div class="draggable sidebar-badge" style="top: 80px; left: 40px;">
+            <div class="sidebar-text" contenteditable="true">博览群书</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable question-box" style="top: 80px; left: 140px;">
+            <div class="question-text" contenteditable="true">如果你来驾驶“鹦鹉螺号”，能实现一系列壮举吗？</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable content-box" style="top: 220px; left: 140px;">
+            <div class="content-text" contenteditable="true">
+                “鹦鹉螺号”能够实现壮举，与船长强大的精神力量紧密相关。如果你也能像船长那样拥有<span class="highlight">敢为人先的拓荒精神</span>、<span
+                    class="highlight">打破常规的过人胆识</span>、<span class="highlight">十分敏锐的观察能力</span>，相信在不远的未来，你也可以实现这样的壮举！
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable quote-box" style="top: 700px; left: 200px;">
+            <div class="quote-text" contenteditable="true">“唯一不可战胜的是人类精神的火焰。”</div>
+            <div class="quote-author" contenteditable="true">—— 纳尔逊 · 曼德拉</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable character-avatar" style="top: 280px; left: 1250px; transform: scale(0.8);">
+            <div class="avatar-placeholder">👨‍✈️</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable decor-text decor-style-1" style="top: 100px; left: 1200px; transform: rotate(-5deg);">
+            <div contenteditable="true">
+                <span>打破常规的</span>
+                <span>过人胆识</span>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable decor-text decor-style-1" style="top: 550px; left: 1200px; transform: rotate(5deg);">
+            <div contenteditable="true">
+                <span>敢为人先的</span>
+                <span>拓荒精神</span>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable decor-text decor-style-2" style="top: 150px; left: 1500px; transform: rotate(5deg);">
+            <div contenteditable="true">
+                <span>十分敏锐的</span>
+                <span>观察能力</span>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="draggable logo" style="top: 40px; right: 60px;">
+            <div contenteditable="true">学而思网校</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * Generic Interactive HTML Generator Logic
+         * Features: Drag, Resize (Scale), Z-Index, Delete, Text Edit, Undo/Redo
+         */
+
+        const app = document.getElementById('app');
+        const historyStack = [];
+        let historyIndex = -1;
+        const MAX_HISTORY = 20;
+
+        // --- History System ---
+
+        function saveState() {
+            // Remove current future states if we are in middle of stack
+            if (historyIndex < historyStack.length - 1) {
+                historyStack.splice(historyIndex + 1);
+            }
+
+            // Save HTML string
+            historyStack.push(app.innerHTML);
+
+            // Limit stack size
+            if (historyStack.length > MAX_HISTORY) {
+                historyStack.shift();
+            } else {
+                historyIndex++;
+            }
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                app.innerHTML = historyStack[historyIndex];
+            }
+        }
+
+        // Initial State
+        saveState();
+
+        document.addEventListener('keydown', (e) => {
+            // Undo: Ctrl+Z or Command+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+
+            // Delete Key
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selected = document.querySelector('.draggable.selected');
+                // Only delete if not editing text
+                if (selected && document.activeElement.getAttribute('contenteditable') !== 'true') {
+                    selected.remove();
+                    saveState();
+                }
+            }
+        });
+
+        // --- Interaction Logic (Delegation) ---
+
+        let currentDrag = null;
+        let currentResize = null;
+        let startX, startY;
+        let initialLeft, initialTop;
+        let initialScale;
+
+        // Helper: Parse translate/scale from transform string
+        function getTransform(el) {
+            const style = window.getComputedStyle(el);
+            const matrix = new WebKitCSSMatrix(style.transform);
+            return { scale: matrix.a }; // simplified for uniform scale
+        }
+
+        // 1. Mouse Down (Start Action)
+        document.addEventListener('mousedown', (e) => {
+            const target = e.target;
+
+            // Handle Delete Button
+            if (target.classList.contains('delete-btn')) {
+                const item = target.closest('.draggable');
+                if (item) {
+                    item.remove();
+                    saveState();
+                }
+                return;
+            }
+
+            // Handle Resize Handle
+            if (target.classList.contains('resize-handle')) {
+                e.preventDefault(); // prevent text selection
+                currentResize = target.closest('.draggable');
+                startX = e.clientX;
+                const transform = getTransform(currentResize);
+                initialScale = transform.scale;
+                return;
+            }
+
+            // Handle Draggable Item Selection & Drag Start
+            const draggable = target.closest('.draggable');
+            if (draggable) {
+                // Text edit mode check
+                if (target.getAttribute('contenteditable') === 'true') {
+                    // If clicking text, allow default behavior (caret placement)
+                    // But still select the container
+                    document.querySelectorAll('.draggable').forEach(el => el.classList.remove('selected'));
+                    draggable.classList.add('selected');
+                    return;
+                }
+
+                // Select item
+                document.querySelectorAll('.draggable').forEach(el => el.classList.remove('selected'));
+                draggable.classList.add('selected');
+
+                // Start Drag
+                currentDrag = draggable;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = draggable.offsetLeft;
+                initialTop = draggable.offsetTop;
+
+                // Z-Index Management (Don't change on drag per user request, but usually we bring to front)
+                // Keeping strict layer order as per spec "严禁在点击/拖拽时改变 Z-index"
+            } else {
+                // Click outside - deselect
+                if (target.id === 'app' || target.classList.contains('mountain-bg')) {
+                    document.querySelectorAll('.draggable').forEach(el => el.classList.remove('selected'));
+                }
+            }
+        });
+
+        // 2. Mouse Move (Dragging / Resizing)
+        document.addEventListener('mousemove', (e) => {
+            if (currentDrag) {
+                e.preventDefault();
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                currentDrag.style.left = `${initialLeft + dx}px`;
+                currentDrag.style.top = `${initialTop + dy}px`;
+            }
+
+            if (currentResize) {
+                e.preventDefault();
+                const dx = e.clientX - startX;
+                // Simple scaling logic based on X movement
+                // Sensitivity factor 0.005
+                const newScale = Math.max(0.1, initialScale + dx * 0.002);
+                currentResize.style.transform = `scale(${newScale})`;
+            }
+        });
+
+        // 3. Mouse Up (End Action & Save State)
+        document.addEventListener('mouseup', () => {
+            if (currentDrag || currentResize) {
+                saveState(); // Record history on action end
+            }
+            currentDrag = null;
+            currentResize = null;
+        });
+
+        // Text Edit Blur -> Save State
+        document.addEventListener('focusout', (e) => {
+            if (e.target.getAttribute('contenteditable') === 'true') {
+                saveState();
+            }
+        });
+
+        // Fit App to Screen (Optional Visualization Helper)
+        function fitScreen() {
+            const app = document.getElementById('app');
+            const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+            app.style.transform = `scale(${scale})`;
+            app.style.marginLeft = `${(window.innerWidth - 1920 * scale) / 2}px`;
+            app.style.marginTop = `${(window.innerHeight - 1080 * scale) / 2}px`;
+        }
+        window.addEventListener('resize', fitScreen);
+        fitScreen();
+
+    </script>
+</body>
+
+</html>
