@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Courseware Generator</title>
+    <style>
+        /* ==============================
+           Global Reset & Layout
+           ============================== */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            /* Prevent text selection while dragging */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #333;
+            /* Dark outside canvas */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Microsoft YaHei", "Heiti SC", sans-serif;
+            overflow: hidden;
+        }
+
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1008px;
+            /* 1080 scaled to fit view usually, keeping 16:9 ratio */
+            width: 1920px;
+            height: 1080px;
+            background-color: #8FD365;
+            /* Fallback green */
+            /* Using the reference image as background to simulate the environment */
+            background-image: url('https://files.oaiusercontent.com/file-627jC181y5v9Wf3p5Qz31G?se=2025-01-18T09%3A40%3A22Z&sp=r&sv=2024-08-04&sr=b&rscc=max-age%3D604800%2C%20immutable%2C%20private&rscd=attachment%3B%20filename%3Dimage_bcfab1.jpg&sig=Hq9%2BW/3Siy8rW7XwVlWz/uO0R/pX3v%2BuFpW%2BqJ/u%2Br8%3D');
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            transform-origin: center center;
+        }
+
+        /* ==============================
+           Component Components (Draggable)
+           ============================== */
+        .component {
+            position: absolute;
+            cursor: grab;
+            z-index: 500;
+            transition: box-shadow 0.2s, outline 0.2s;
+        }
+
+        .component:active {
+            cursor: grabbing;
+        }
+
+        .component.selected {
+            outline: 2px dashed #0099ff;
+            z-index: 1000 !important;
+            /* Bring to front when selected */
+        }
+
+        /* Editable Text */
+        [contenteditable="true"] {
+            cursor: text;
+            outline: none;
+        }
+
+        /* ==============================
+           Specific Styles based on Reference
+           ============================== */
+
+        /* 1. Left Vertical Badge (博览群书) */
+        .badge-red {
+            background: #E74C3C;
+            color: white;
+            border-radius: 0 0 20px 0;
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 5px;
+            padding: 20px 10px;
+            box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.2);
+            /* Positioned */
+            top: 0;
+            left: 20px;
+            width: 60px;
+            height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 2. Top Scroll Title (丛林体验...) */
+        .scroll-title {
+            background: #FFFBF0;
+            color: #333;
+            border-radius: 15px;
+            padding: 15px 30px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            border: 2px solid #F0E6D2;
+            /* Positioned */
+            top: 40px;
+            left: 120px;
+            width: 340px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .scroll-title h1 {
+            font-size: 36px;
+            color: #27AE60;
+            /* Green Title */
+            margin: 0 0 10px 0;
+            text-shadow: 2px 2px 0px #fff;
+        }
+
+        .scroll-title p {
+            font-size: 24px;
+            color: #555;
+            margin: 0;
+            font-weight: bold;
+        }
+
+        /* Decor leaves (CSS simple shape) */
+        .scroll-title::before,
+        .scroll-title::after {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #27AE60;
+            border-radius: 50% 0 50% 0;
+            z-index: -1;
+        }
+
+        .scroll-title::before {
+            top: -10px;
+            left: -10px;
+            transform: rotate(-30deg);
+        }
+
+        .scroll-title::after {
+            top: -10px;
+            right: -10px;
+            transform: rotate(120deg);
+        }
+
+
+        /* 3. Question Bar (你看到了什么) */
+        .question-bar {
+            background: none;
+            display: flex;
+            align-items: center;
+            /* Positioned */
+            top: 50px;
+            left: 550px;
+            width: 500px;
+            height: 80px;
+        }
+
+        .binoculars-icon {
+            font-size: 60px;
+            margin-right: 15px;
+        }
+
+        .question-text {
+            font-size: 48px;
+            font-weight: 900;
+            color: #E74C3C;
+            text-shadow: 3px 3px 0 #fff, -1px -1px 0 #fff;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px 20px;
+            border-radius: 40px;
+        }
+
+        /* 4. Tian Zi Ge Card (The Chinese Character Cards) */
+        .tian-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 160px;
+            height: 240px;
+            /* Default size */
+        }
+
+        /* Pinyin Part */
+        .pinyin {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.8);
+            margin-bottom: 5px;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* The Grid Box */
+        .grid-box {
+            width: 140px;
+            height: 140px;
+            background-color: #fff;
+            border: 4px solid #EA5455;
+            /* Red border */
+            border-radius: 12px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* The dashed cross lines inside grid */
+        .grid-box::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: repeating-linear-gradient(to right, #EA5455 0, #EA5455 5px, transparent 5px, transparent 10px);
+            opacity: 0.5;
+        }
+
+        .grid-box::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            height: 100%;
+            width: 2px;
+            background: repeating-linear-gradient(to bottom, #EA5455 0, #EA5455 5px, transparent 5px, transparent 10px);
+            opacity: 0.5;
+        }
+
+        .hanzi {
+            font-size: 100px;
+            line-height: 1;
+            font-family: "KaiTi", "Kaiti SC", serif;
+            /* Calligraphy font */
+            z-index: 2;
+            color: #333;
+        }
+
+        /* Label Bubble */
+        .label-bubble {
+            margin-top: 10px;
+            background: #F39C12;
+            /* Default Orange */
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            min-width: 80px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            border: 2px solid white;
+        }
+
+        /* Color Variants for Bubbles */
+        .blue-theme .label-bubble {
+            background: #3498DB;
+        }
+
+        .green-theme .label-bubble {
+            background: #2ECC71;
+        }
+
+        .large-bubble .label-bubble {
+            background: #F1C40F;
+            color: #5d4037;
+            width: 260px;
+            text-align: center;
+        }
+
+        /* ==============================
+           Controls (Handles & Delete)
+           ============================== */
+
+        /* Resize Handle */
+        .resize-handle {
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            position: absolute;
+            bottom: -10px;
+            right: -10px;
+            cursor: nwse-resize;
+            opacity: 0;
+            /* Hidden by default */
+            transition: opacity 0.2s;
+            z-index: 1001;
+        }
+
+        .component:hover .resize-handle,
+        .component.selected .resize-handle {
+            opacity: 1;
+        }
+
+        /* Delete Button */
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 1002;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .component.selected .delete-btn {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="component badge-red" style="left: 30px; top: 0px;">
+            <div contenteditable="true">博览群书</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="component scroll-title" style="left: 130px; top: 40px; transform: scale(1);">
+            <h1 contenteditable="true">丛林体验一</h1>
+            <p contenteditable="true">狼爸爸教本领</p>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="component question-bar" style="left: 600px; top: 60px;">
+            <div class="binoculars-icon">👀</div>
+            <div class="question-text" contenteditable="true">你看到了什么？</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="component tian-card" style="left: 450px; top: 220px;">
+            <div class="pinyin" contenteditable="true">rén</div>
+            <div class="grid-box">
+                <div class="hanzi" contenteditable="true">人</div>
+            </div>
+            <div class="label-bubble"
+                style="background: #F1C40F; color: #5D4037; width: 220px; margin-left: 120px; margin-top: -20px; position: relative;"
+                contenteditable="true">
+                狼爸爸、小狼<br>和毛格利
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="component tian-card blue-theme" style="left: 1200px; top: 150px;">
+            <div class="pinyin" contenteditable="true">tiān</div>
+            <div class="grid-box">
+                <div class="hanzi" contenteditable="true">天</div>
+            </div>
+            <div class="label-bubble" contenteditable="true">夕阳</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="component tian-card green-theme" style="left: 1150px; top: 700px;">
+            <div class="pinyin" contenteditable="true">dì</div>
+            <div class="grid-box">
+                <div class="hanzi" contenteditable="true">地</div>
+            </div>
+            <div class="label-bubble" contenteditable="true">湖水</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+        <div class="component"
+            style="right: 50px; top: 50px; color: rgba(255,255,255,0.8); font-weight: bold; font-size: 24px;">
+            <div contenteditable="true">学而思网校</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">X</div>
+        </div>
+
+    </div>
+
+    <script>
+        const app = document.getElementById('app');
+        let isDragging = false;
+        let isResizing = false;
+        let currentElement = null;
+        let startX, startY, initialLeft, initialTop;
+        let startWidth, startHeight, initialScale;
+
+        // History Stack
+        const historyStack = [];
+        const MAX_HISTORY = 20;
+
+        function saveState() {
+            if (historyStack.length >= MAX_HISTORY) historyStack.shift();
+            historyStack.push(app.innerHTML);
+            // console.log("State Saved. Stack size:", historyStack.length);
+        }
+
+        // Initialize state
+        saveState();
+
+        // ================= Global Event Delegation =================
+
+        // 1. Selection & Deletion Logic
+        app.addEventListener('mousedown', (e) => {
+            // Clicked on background? Deselect all
+            if (e.target === app) {
+                document.querySelectorAll('.component').forEach(el => el.classList.remove('selected'));
+                return;
+            }
+
+            const target = e.target.closest('.component');
+            if (target) {
+                // Deselect others
+                document.querySelectorAll('.component').forEach(el => {
+                    if (el !== target) el.classList.remove('selected');
+                });
+                target.classList.add('selected');
+            }
+        });
+
+        // Delete Button Click
+        app.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                const component = e.target.closest('.component');
+                if (component) {
+                    saveState(); // Save before delete
+                    component.remove();
+                    saveState(); // Save after delete
+                }
+            }
+        });
+
+        // Keyboard Delete
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Don't delete if editing text
+                if (document.activeElement.isContentEditable) return;
+
+                const selected = document.querySelector('.component.selected');
+                if (selected) {
+                    saveState();
+                    selected.remove();
+                    saveState();
+                }
+            }
+
+            // Undo: Ctrl+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (historyStack.length > 1) { // Always keep 1 state
+                    historyStack.pop(); // Remove current state
+                    const previousState = historyStack[historyStack.length - 1];
+                    app.innerHTML = previousState;
+                }
+            }
+        });
+
+        // 2. Dragging Logic
+        app.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-handle')) return; // Pass to resize logic
+            if (e.target.closest('[contenteditable="true"]')) return; // Pass to text edit
+            if (e.target.classList.contains('delete-btn')) return;
+
+            const target = e.target.closest('.component');
+            if (!target) return;
+
+            isDragging = true;
+            currentElement = target;
+
+            // Calculate Offset
+            const rect = target.getBoundingClientRect();
+            const parentRect = app.getBoundingClientRect();
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            // Get current style positions (parse 'px')
+            initialLeft = parseFloat(target.style.left || rect.left - parentRect.left);
+            initialTop = parseFloat(target.style.top || rect.top - parentRect.top);
+        });
+
+        // 3. Resizing Logic
+        app.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-handle')) {
+                e.preventDefault();
+                e.stopPropagation();
+                isResizing = true;
+                currentElement = e.target.closest('.component');
+
+                startX = e.clientX;
+
+                // Parse current scale transform
+                const style = window.getComputedStyle(currentElement);
+                const matrix = new WebKitCSSMatrix(style.webkitTransform);
+                initialScale = matrix.a; // 'a' is scale X
+            }
+        });
+
+        // Move (Global)
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging && currentElement) {
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                currentElement.style.left = `${initialLeft + dx}px`;
+                currentElement.style.top = `${initialTop + dy}px`;
+            }
+
+            if (isResizing && currentElement) {
+                const dx = e.clientX - startX;
+                // Simple scaling logic: 100px movement = +0.1 scale
+                const newScale = Math.max(0.2, initialScale + (dx * 0.005));
+                currentElement.style.transform = `scale(${newScale})`;
+            }
+        });
+
+        // Mouse Up (Global)
+        window.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) {
+                saveState(); // Record change
+            }
+            isDragging = false;
+            isResizing = false;
+            currentElement = null;
+        });
+
+        // Text Edit Save Trigger
+        app.addEventListener('blur', (e) => {
+            if (e.target.isContentEditable) {
+                saveState();
+            }
+        }, true); // Capture phase
+
+    </script>
+</body>
+
+</html>
