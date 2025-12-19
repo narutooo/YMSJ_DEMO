@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高山流水 - 像素级复刻</title>
+    <style>
+        /* ================= Reset & Layout ================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: "Microsoft YaHei", sans-serif;
+            overflow: hidden;
+        }
+
+        /* ================= Canvas ================= */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background-color: #AEEEEE;
+            /* 天空蓝 */
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            transform-origin: center center;
+            /* 自动缩放以适应当前窗口 */
+            zoom: 0.5;
+        }
+
+        /* ================= Background Art (CSS 绘图) ================= */
+        .scene-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* 太阳 */
+        .sun {
+            position: absolute;
+            top: 50px;
+            right: 250px;
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, #ffeaa7 20%, #fab1a0 100%);
+            border-radius: 50%;
+            opacity: 0.9;
+        }
+
+        /* 远山 (青色) */
+        .mountain-back {
+            position: absolute;
+            bottom: 250px;
+            left: 0;
+            width: 100%;
+            height: 700px;
+            background: linear-gradient(180deg, #74b9ff 0%, #a29bfe 100%);
+            clip-path: polygon(0% 100%, 10% 40%, 25% 90%, 40% 30%, 60% 80%, 80% 20%, 100% 70%, 100% 100%);
+            opacity: 0.6;
+        }
+
+        /* 中景山 (绿色) */
+        .mountain-mid {
+            position: absolute;
+            bottom: 100px;
+            right: 0;
+            width: 60%;
+            height: 800px;
+            background: linear-gradient(180deg, #55efc4 0%, #00b894 100%);
+            clip-path: polygon(0% 100%, 20% 50%, 40% 20%, 60% 40%, 75% 10%, 90% 40%, 100% 20%, 100% 100%);
+            z-index: 1;
+        }
+
+        /* 瀑布 (在山之间) */
+        .waterfall-bg {
+            position: absolute;
+            bottom: 250px;
+            right: 320px;
+            width: 80px;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            z-index: 2;
+        }
+
+        /* 前景草地 */
+        .ground {
+            position: absolute;
+            bottom: -50px;
+            left: -10%;
+            width: 120%;
+            height: 350px;
+            background: linear-gradient(to bottom, #55efc4 0%, #00b894 100%);
+            background: #2ecc71;
+            border-top: 5px solid #27ae60;
+            border-radius: 50% 50% 0 0 / 20% 20% 0 0;
+            z-index: 3;
+        }
+
+        /* 水面 */
+        .water {
+            position: absolute;
+            bottom: 50px;
+            right: 0;
+            width: 800px;
+            height: 200px;
+            background: #74b9ff;
+            border-radius: 100% 0 0 0;
+            z-index: 4;
+            opacity: 0.8;
+        }
+
+        /* ================= Components ================= */
+        .component {
+            position: absolute;
+            transform-origin: top left;
+            cursor: move;
+            z-index: 500;
+            /* 默认层级 */
+        }
+
+        .component:hover {
+            outline: 2px dashed rgba(255, 255, 255, 0.8);
+        }
+
+        .component.selected {
+            outline: 3px solid #0984e3;
+            z-index: 1000 !important;
+        }
+
+        .editable-text {
+            outline: none;
+            cursor: text;
+        }
+
+        /* Style: Logo */
+        .logo-text {
+            font-size: 28px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            font-family: sans-serif;
+            opacity: 0.9;
+        }
+
+        /* Style: Red Vertical Badge (Side) */
+        .badge-vertical {
+            width: 90px;
+            height: 240px;
+            background: linear-gradient(135deg, #ff7675, #d63031);
+            border-radius: 45px;
+            box-shadow: 4px 4px 0px rgba(192, 57, 43, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            writing-mode: vertical-lr;
+            color: white;
+            font-size: 40px;
+            font-weight: 900;
+            letter-spacing: 8px;
+        }
+
+        /* Style: Top Banner */
+        .banner-top {
+            width: 800px;
+            height: 110px;
+            background: #e17055;
+            border-radius: 55px;
+            border: 4px solid #fff;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .banner-dashed {
+            width: 96%;
+            height: 84%;
+            border: 2px dashed rgba(255, 255, 255, 0.7);
+            border-radius: 45px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 42px;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        /* Decor dots on banner */
+        .banner-dot {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+        }
+
+        /* Style: Name Tag */
+        .name-tag {
+            width: 60px;
+            height: 160px;
+            background: #d63031;
+            border-radius: 30px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            color: white;
+            writing-mode: vertical-lr;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 6px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Style: Title */
+        .main-title {
+            font-size: 110px;
+            font-weight: 900;
+            color: #ffeaa7;
+            text-shadow: 4px 4px 0px #e67e22;
+            font-family: "LiSu", "Kaiti", "Microsoft YaHei", cursive;
+            /* 尝试用一点书法感字体 */
+            letter-spacing: 5px;
+        }
+
+        /* Style: Character Placeholder */
+        .char-box {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            border-bottom: 4px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .char-shape {
+            width: 100%;
+            height: 100%;
+            border-radius: 20px 20px 0 0;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Controls */
+        .resize-handle {
+            position: absolute;
+            bottom: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #0984e3;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+            z-index: 9999;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background: #ff7675;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 22px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 9999;
+        }
+
+        .component.selected .resize-handle,
+        .component.selected .delete-btn {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="scene-layer">
+            <div class="sun"></div>
+            <div class="mountain-back"></div>
+            <div class="mountain-mid"></div>
+            <div class="waterfall-bg"></div>
+            <div class="water"></div>
+            <div class="ground"></div>
+        </div>
+
+        <div class="component" style="top: 30px; right: 50px; z-index: 800;">
+            <div class="logo-text editable-text">学而思网校</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component badge-vertical" style="top: 40px; left: 40px; z-index: 600;">
+            <div class="editable-text">温故知新</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component banner-top" style="top: 80px; left: 50%; transform: translateX(-50%); z-index: 600;">
+            <div class="banner-dashed">
+                <div class="banner-dot" style="left: 15px;"></div>
+                <div class="editable-text">什么是真正的朋友？</div>
+                <div class="banner-dot" style="right: 15px;"></div>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component name-tag" style="top: 550px; left: 160px; z-index: 550;">
+            <div class="editable-text">俞伯牙</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component char-box" style="top: 540px; left: 230px; width: 350px; height: 380px; z-index: 500;">
+            <div class="char-shape" style="background: linear-gradient(to bottom, #d63031, #c0392b);">
+                <span>(拖入俞伯牙素材)</span>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component name-tag" style="top: 520px; left: 600px; z-index: 550;">
+            <div class="editable-text">钟子期</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component char-box" style="top: 560px; left: 670px; width: 320px; height: 340px; z-index: 490;">
+            <div class="char-shape" style="background: linear-gradient(to bottom, #a0572b, #844723);">
+                <span>(拖入钟子期素材)</span>
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component" style="top: 560px; left: 1050px; z-index: 700;">
+            <div class="main-title editable-text">高山流水</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component" style="top: 500px; left: 1550px; width: 120px; height: 300px; z-index: 400;">
+            <div
+                style="width:100%; height:100%; background: linear-gradient(to bottom, rgba(255,255,255,0.9), rgba(255,255,255,0)); border-radius: 10px;">
+            </div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        // ================= JS Logic (Keep Previous Robust Logic) =================
+        const app = document.getElementById('app');
+        let selectedEl = null;
+        let isDragging = false, isResizing = false;
+        let startX, startY, startLeft, startTop, startScale = 1;
+        const historyStack = [];
+        let isUndo = false;
+
+        function saveState() {
+            if (isUndo) return;
+            if (historyStack.length > 20) historyStack.shift();
+            historyStack.push(app.innerHTML);
+        }
+        saveState();
+
+        // Event Delegation
+        app.addEventListener('mousedown', (e) => {
+            if (e.target === app || e.target.closest('.scene-layer')) {
+                if (selectedEl) selectedEl.classList.remove('selected');
+                selectedEl = null;
+                return;
+            }
+
+            const el = e.target.closest('.component');
+            if (!el) return;
+
+            if (selectedEl && selectedEl !== el) selectedEl.classList.remove('selected');
+            selectedEl = el;
+            selectedEl.classList.add('selected');
+
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                e.preventDefault(); e.stopPropagation();
+                startX = e.clientX;
+                const transform = window.getComputedStyle(el).transform;
+                startScale = (transform !== 'none') ? new WebKitCSSMatrix(transform).a : 1;
+            } else if (e.target.classList.contains('delete-btn')) {
+                el.remove(); selectedEl = null; saveState();
+            } else if (!e.target.isContentEditable) {
+                isDragging = true;
+                startX = e.clientX; startY = e.clientY;
+                startLeft = el.offsetLeft; startTop = el.offsetTop;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!selectedEl) return;
+            const zoom = parseFloat(getComputedStyle(app).zoom) || 1;
+
+            if (isDragging) {
+                const dx = (e.clientX - startX) / zoom;
+                const dy = (e.clientY - startY) / zoom;
+                selectedEl.style.left = startLeft + dx + 'px';
+                selectedEl.style.top = startTop + dy + 'px';
+                // Remove transform translate if it exists (for the banner) to allow free drag
+                if (selectedEl.style.transform.includes('translateX')) {
+                    selectedEl.style.transform = selectedEl.style.transform.replace(/translateX\([^)]+\)/, '').trim();
+                }
+            } else if (isResizing) {
+                const dx = (e.clientX - startX) / zoom;
+                const scaleDelta = dx / 200;
+                selectedEl.style.transform = `scale(${Math.max(0.2, startScale + scaleDelta)})`;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) { isDragging = false; isResizing = false; saveState(); }
+        });
+
+        app.addEventListener('focusout', (e) => { if (e.target.isContentEditable) saveState(); });
+
+        window.addEventListener('keydown', (e) => {
+            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEl && !document.activeElement.isContentEditable) {
+                selectedEl.remove(); selectedEl = null; saveState();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (historyStack.length > 1) {
+                    isUndo = true; historyStack.pop();
+                    app.innerHTML = historyStack[historyStack.length - 1];
+                    selectedEl = null; isUndo = false;
+                }
+            }
+        });
+
+        // Fit Screen
+        function fit() {
+            const r = window.innerWidth / 1920;
+            if (r < 1) app.style.zoom = r;
+        }
+        window.onresize = fit; fit();
+    </script>
+</body>
+
+</html>
