@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H5 Canvas Generator</title>
+    <style>
+        /* =========================================
+           1. 全局重置与基础样式
+           ========================================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            /* 防止拖拽时选中文本，编辑模式除外 */
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #333;
+            /* 画布外的深色背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        /* =========================================
+           2. 核心画布 #app (1920x1080)
+           ========================================= */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background-color: #fff;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            /* 为了在普通屏幕预览，这里加一个自适应缩放，实际生产中可以是固定尺寸 */
+            transform-origin: center center;
+        }
+
+        /* =========================================
+           3. 组件通用样式
+           ========================================= */
+        .component {
+            position: absolute;
+            cursor: grab;
+            transform-origin: top left;
+            /* 缩放基点 */
+        }
+
+        .component:active {
+            cursor: grabbing;
+        }
+
+        /* 选中状态 */
+        .component.selected {
+            outline: 2px dashed #0099ff;
+            z-index: 1000 !important;
+            /* 临时置顶便于操作，但规则说不改z-index，这里仅视觉辅助，实际层级由style决定 */
+        }
+
+        /* 文本可编辑时的样式 */
+        [contenteditable="true"] {
+            cursor: text;
+            outline: none;
+            user-select: text;
+        }
+
+        /* 缩放手柄 (右下角) */
+        .resize-handle {
+            position: absolute;
+            bottom: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background-color: #fff;
+            border: 2px solid #0099ff;
+            border-radius: 50%;
+            cursor: nwse-resize;
+            display: none;
+            /* 默认隐藏 */
+            z-index: 9999;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .component.selected .resize-handle {
+            display: block;
+            /* 选中时显示 */
+        }
+
+        /* 删除按钮 (右上角) */
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background-color: #ff4757;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            font-size: 16px;
+        }
+
+        .component.selected .delete-btn {
+            display: block;
+        }
+
+        /* =========================================
+           4. 具体组件样式 (Visual Fallbacks)
+           ========================================= */
+
+        /* 4.1 背景层 - 模拟参考图的极地风景 */
+        .comp-background {
+            width: 1920px;
+            height: 1080px;
+            top: 0;
+            left: 0;
+            /* 使用 CSS 渐变模拟天空(紫色)到雪山(蓝白) */
+            background: linear-gradient(170deg,
+                    #a66fb5 0%,
+                    #d48ac9 25%,
+                    #e8ebf2 45%,
+                    #8faecf 60%,
+                    #4f6d91 100%);
+            z-index: 1;
+            pointer-events: none;
+            /* 背景不可拖拽 */
+        }
+
+        /* 模拟远处的雪山形状 */
+        .comp-background::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 80%;
+            height: 60%;
+            background: linear-gradient(to top left, transparent 50%, rgba(255, 255, 255, 0.3) 50%);
+            filter: blur(20px);
+        }
+
+        /* 4.2 主容器 - 磨砂玻璃文本框 */
+        .comp-container {
+            width: 960px;
+            height: 640px;
+            left: 140px;
+            top: 220px;
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(15px);
+            /* 磨砂效果 */
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+            padding: 60px 80px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* 4.3 红色徽章 - 左上角 */
+        .comp-badge {
+            width: 60px;
+            height: 160px;
+            left: 60px;
+            top: 0px;
+            background: linear-gradient(to bottom, #ff6b6b, #ee5253);
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 5px 15px rgba(238, 82, 83, 0.4);
+            z-index: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-bottom: 10px;
+        }
+
+        .comp-badge .badge-text {
+            writing-mode: vertical-rl;
+            /* 竖排文字 */
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+            letter-spacing: 4px;
+            font-family: "SimSun", serif;
+            /* 宋体更有书卷气 */
+        }
+
+        /* 4.4 Logo - 右上角 */
+        .comp-logo {
+            width: 200px;
+            height: 50px;
+            right: 60px;
+            top: 40px;
+            z-index: 600;
+            text-align: right;
+            font-size: 32px;
+            color: #fff;
+            font-weight: 500;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            display: flex;
+            /* 修正定位计算 */
+            justify-content: flex-end;
+            /* 修正定位计算 */
+            /* 注意：right定位在JS拖拽计算中会转换为left，初始CSS用left更稳妥，这里模拟视觉位置 */
+            left: 1660px;
+        }
+
+        /* 4.5 内容文字样式 */
+        .text-content {
+            font-size: 38px;
+            line-height: 1.6;
+            color: #1a1a1a;
+            font-family: sans-serif;
+            text-align: justify;
+        }
+
+        .text-content p {
+            margin-bottom: 24px;
+            text-indent: 2em;
+            /* 首行缩进 */
+        }
+
+        .text-source {
+            text-align: right;
+            margin-top: 20px;
+            font-size: 32px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .highlight {
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="comp-background"></div>
+
+        <div class="component comp-badge" style="z-index: 600;" data-scale="1">
+            <div class="badge-text" contenteditable="true">博览群书</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component comp-logo" style="z-index: 600;" data-scale="1">
+            <div contenteditable="true">学而思网校</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="component comp-container" style="z-index: 200;" data-scale="1">
+            <div class="text-content">
+                <p contenteditable="true">“现在，我——尼摩船长，1868年3月21日，到达了南极点，我占领了面积等于大陆1/6的这一部分地球上的土地。”</p>
+                <p contenteditable="true">“船长，您用谁的名字给它命名呢？”</p>
+                <p contenteditable="true">“先生，我用我的名字！”</p>
+                <p contenteditable="true">船长把一面黑旗插到了脚下的土地上，旗中间有个金黄的“N”。这是他的名字。</p>
+                <div class="text-source" contenteditable="true">——第6册第18页（有删改）</div>
+            </div>
+
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 交互逻辑核心
+         * 包含：拖拽、缩放、选中、删除、撤销机制
+         */
+        const app = document.getElementById('app');
+
+        // 状态管理
+        let state = {
+            dragging: false,
+            resizing: false,
+            activeEl: null,
+            startX: 0,
+            startY: 0,
+            initialLeft: 0,
+            initialTop: 0,
+            initialScale: 1,
+            history: [],
+            historyPointer: -1
+        };
+
+        // ------------------------------------------
+        // 1. 历史记录系统 (Undo)
+        // ------------------------------------------
+        function saveHistory() {
+            // 如果处于历史中间，删除当前指针之后的所有记录
+            if (state.historyPointer < state.history.length - 1) {
+                state.history = state.history.slice(0, state.historyPointer + 1);
+            }
+            // 保存当前innerHTML快照
+            state.history.push(app.innerHTML);
+            state.historyPointer++;
+
+            // 限制历史记录长度（可选）
+            if (state.history.length > 20) {
+                state.history.shift();
+                state.historyPointer--;
+            }
+        }
+
+        function undo() {
+            if (state.historyPointer > 0) {
+                state.historyPointer--;
+                app.innerHTML = state.history[state.historyPointer];
+                // 恢复后需要重新清除选中状态的视觉（虽然innerHTML恢复了dom，但变量activeEl需要重置）
+                state.activeEl = null;
+            }
+        }
+
+        // 初始化保存一次
+        saveHistory();
+
+        // 监听键盘撤销 (Ctrl+Z) 和 删除 (Delete)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                // 如果正在编辑文字，不触发删除组件
+                if (document.activeElement.isContentEditable) return;
+
+                const selected = app.querySelector('.component.selected');
+                if (selected) {
+                    selected.remove();
+                    saveHistory();
+                }
+            }
+        });
+
+        // ------------------------------------------
+        // 2. 交互事件委托
+        // ------------------------------------------
+
+        // 辅助：获取组件根节点
+        function getComponent(target) {
+            return target.closest('.component');
+        }
+
+        // 鼠标按下
+        app.addEventListener('mousedown', (e) => {
+            // 1. 处理删除按钮
+            if (e.target.classList.contains('delete-btn')) {
+                const comp = getComponent(e.target);
+                if (comp) {
+                    comp.remove();
+                    saveHistory();
+                }
+                return;
+            }
+
+            // 2. 处理缩放手柄
+            if (e.target.classList.contains('resize-handle')) {
+                const comp = getComponent(e.target);
+                state.resizing = true;
+                state.activeEl = comp;
+                state.startX = e.clientX;
+                state.startY = e.clientY;
+                // 读取当前scale，默认为1
+                state.initialScale = parseFloat(comp.getAttribute('data-scale')) || 1;
+                e.stopPropagation(); // 阻止冒泡防止触发拖拽
+                return;
+            }
+
+            // 3. 处理组件选中与拖拽
+            const comp = getComponent(e.target);
+
+            // 清除其他选中状态
+            document.querySelectorAll('.component.selected').forEach(el => {
+                if (el !== comp) el.classList.remove('selected');
+            });
+
+            if (comp) {
+                // 背景层不可操作
+                if (comp.classList.contains('comp-background')) return;
+
+                // 文字编辑模式下不触发拖拽，除非点击的是容器空白处
+                if (e.target.isContentEditable) {
+                    comp.classList.add('selected');
+                    return;
+                }
+
+                state.dragging = true;
+                state.activeEl = comp;
+                comp.classList.add('selected');
+
+                // 记录初始位置
+                state.startX = e.clientX;
+                state.startY = e.clientY;
+                state.initialLeft = comp.offsetLeft;
+                state.initialTop = comp.offsetTop;
+            } else {
+                // 点击空白处，取消所有选中
+                state.activeEl = null;
+            }
+        });
+
+        // 鼠标移动
+        window.addEventListener('mousemove', (e) => {
+            if (!state.activeEl) return;
+
+            // --- 拖拽逻辑 ---
+            if (state.dragging) {
+                e.preventDefault();
+                const dx = e.clientX - state.startX;
+                const dy = e.clientY - state.startY;
+
+                let newLeft = state.initialLeft + dx;
+                let newTop = state.initialTop + dy;
+
+                // 简单的边界检查 (可选)
+                // if (newLeft < 0) newLeft = 0;
+                // if (newTop < 0) newTop = 0;
+
+                state.activeEl.style.left = newLeft + 'px';
+                state.activeEl.style.top = newTop + 'px';
+            }
+
+            // --- 缩放逻辑 ---
+            if (state.resizing) {
+                e.preventDefault();
+                // 简单的缩放算法：根据鼠标在X轴的移动距离来计算比例增量
+                // 向右下移动增大，向左上移动减小
+                const dx = e.clientX - state.startX;
+                // 灵敏度系数，每100px变化1倍
+                const scaleDelta = dx / 200;
+
+                let newScale = state.initialScale + scaleDelta;
+                if (newScale < 0.2) newScale = 0.2; // 最小限制
+
+                state.activeEl.style.transform = `scale(${newScale})`;
+                state.activeEl.setAttribute('data-scale', newScale);
+            }
+        });
+
+        // 鼠标抬起
+        window.addEventListener('mouseup', () => {
+            if (state.dragging || state.resizing) {
+                saveHistory(); // 操作结束，保存快照
+            }
+            state.dragging = false;
+            state.resizing = false;
+        });
+
+        // 文本编辑完成监听 (Blur)
+        app.addEventListener('focusout', (e) => {
+            if (e.target.isContentEditable) {
+                saveHistory();
+            }
+        });
+
+        // ------------------------------------------
+        // 3. 屏幕适配 (Preview Only)
+        // ------------------------------------------
+        function fitScreen() {
+            const scaleX = window.innerWidth / 1920;
+            const scaleY = window.innerHeight / 1080;
+            const scale = Math.min(scaleX, scaleY, 1); // 保持比例，不超过1
+            app.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', fitScreen);
+        fitScreen(); // 初始化执行
+
+    </script>
+</body>
+
+</html>
