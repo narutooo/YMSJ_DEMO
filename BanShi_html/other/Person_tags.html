@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>故宫脊兽 - 交互排版生成（分离版）</title>
+    <style>
+        /* ================= Reset & Base ================= */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+
+        /* ================= Canvas (#app) ================= */
+        #app {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            background: linear-gradient(to bottom, #00b0ff 0%, #81d4fa 60%, #b3e5fc 100%);
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            transform-origin: center center;
+        }
+
+        /* ================= Components Styles ================= */
+
+        /* Common Interaction Classes */
+        .interactive {
+            position: absolute;
+            cursor: grab;
+            transform-origin: top left;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .interactive:active {
+            cursor: grabbing;
+        }
+
+        .interactive.selected {
+            outline: 2px dashed #ff0000;
+            z-index: 1000 !important;
+        }
+
+        /* Resize Handle */
+        .resize-handle {
+            position: absolute;
+            bottom: -12px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            display: none;
+            cursor: nwse-resize;
+            z-index: 9999;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .interactive.selected .resize-handle {
+            display: block;
+        }
+
+        /* Delete Button */
+        .delete-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 30px;
+            height: 30px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-weight: bold;
+            font-family: Arial;
+            cursor: pointer;
+            display: none;
+            z-index: 10000;
+            border: 2px solid white;
+        }
+
+        .interactive.selected .delete-btn {
+            display: block;
+        }
+
+        /* ---------------- Specific Visual Elements ---------------- */
+
+        /* 1. Roof (Background Decor) */
+        .roof-layer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 400px;
+            background: #ffab40;
+            z-index: 100;
+            clip-path: polygon(0 40%, 100% 15%, 100% 100%, 0% 100%);
+            background-image:
+                radial-gradient(circle at 50% 100%, #ff6d00 10%, transparent 11%),
+                linear-gradient(to right, rgba(255, 255, 255, 0.2) 2px, transparent 2px);
+            background-size: 100px 100px;
+            pointer-events: none;
+        }
+
+        /* 2. Red Badge (Top Left) */
+        .badge {
+            width: 60px;
+            height: 180px;
+            background: #d32f2f;
+            color: white;
+            border-radius: 0 0 30px 30px;
+            box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.2);
+            z-index: 600;
+        }
+
+        .badge-text {
+            writing-mode: vertical-rl;
+            font-size: 28px;
+            letter-spacing: 5px;
+            font-weight: bold;
+            outline: none;
+        }
+
+        /* 3. Main Title */
+        .main-title {
+            width: 1000px;
+            color: white;
+            font-size: 60px;
+            font-weight: 800;
+            text-shadow: 3px 3px 0px #f57f17, 5px 5px 10px rgba(0, 0, 0, 0.3);
+            z-index: 600;
+            justify-content: center;
+        }
+
+        /* 4. Watermark */
+        .watermark {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 24px;
+            font-weight: bold;
+            z-index: 500;
+        }
+
+        /* 5. Beast Emojis (Visuals) */
+        .beast-img {
+            font-size: 100px;
+            filter: drop-shadow(5px 5px 0px rgba(255, 255, 255, 0.4));
+            z-index: 550;
+            width: 150px;
+            height: 150px;
+        }
+
+        /* 6. Text Label Cards */
+        .label-card {
+            background: #fff8e1;
+            border: 4px solid #fff;
+            border-radius: 15px;
+            padding: 10px 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            min-width: 120px;
+            z-index: 560;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pinyin {
+            font-size: 16px;
+            color: #555;
+            font-family: Arial;
+            margin-bottom: 2px;
+            outline: none;
+        }
+
+        .hanzi {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            outline: none;
+        }
+
+        /* Pagination Dots */
+        .pagination {
+            gap: 15px;
+            z-index: 600;
+        }
+
+        .dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .dot.active {
+            background: #ff1744;
+            transform: scale(1.2);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <div class="roof-layer"></div>
+
+        <div class="interactive badge" style="top: 0px; left: 80px;" data-scale="1">
+            <div class="badge-text" contenteditable="true">博览群书</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive watermark" style="top: 40px; right: 60px;" data-scale="1">
+            <div contenteditable="true">学而思网校</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive main-title" style="top: 150px; left: 460px;" data-scale="1">
+            <div contenteditable="true">故宫屋顶的神秘军团 —— 脊兽</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive beast-img" style="top: 450px; left: 75px;" data-scale="1">
+            <div>🐎</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="interactive label-card" style="top: 560px; left: 90px;" data-scale="1">
+            <div class="pinyin" contenteditable="true">hǎi mǎ</div>
+            <div class="hanzi" contenteditable="true">海马</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive beast-img"
+            style="top: 420px; left: 305px; filter: drop-shadow(5px 5px 0px rgba(100,181,246,0.4));" data-scale="1">
+            <div>🦄</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="interactive label-card" style="top: 530px; left: 320px;" data-scale="1">
+            <div class="pinyin" contenteditable="true">tiān mǎ</div>
+            <div class="hanzi" contenteditable="true">天马</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive beast-img"
+            style="top: 460px; left: 545px; filter: drop-shadow(5px 5px 0px rgba(76,175,80,0.4));" data-scale="1">
+            <div>🦁</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="interactive label-card" style="top: 570px; left: 560px;" data-scale="1">
+            <div class="pinyin" contenteditable="true">shī zi</div>
+            <div class="hanzi" contenteditable="true">狮子</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive beast-img"
+            style="top: 430px; left: 805px; filter: drop-shadow(5px 5px 0px rgba(255,235,59,0.4));" data-scale="1">
+            <div>🐦</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="interactive label-card" style="top: 540px; left: 820px;" data-scale="1">
+            <div class="pinyin" contenteditable="true">fèng</div>
+            <div class="hanzi" contenteditable="true">凤</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive beast-img"
+            style="top: 490px; left: 1075px; filter: drop-shadow(5px 5px 0px rgba(244,67,54,0.4));" data-scale="1">
+            <div>🐉</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="interactive label-card" style="top: 600px; left: 1090px;" data-scale="1">
+            <div class="pinyin" contenteditable="true">lóng</div>
+            <div class="hanzi" contenteditable="true">龙</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive beast-img"
+            style="top: 500px; left: 1375px; filter: drop-shadow(5px 5px 0px rgba(255,152,0,0.4));" data-scale="1">
+            <div>🧚‍♂️</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+        <div class="interactive label-card" style="top: 610px; left: 1390px;" data-scale="1">
+            <div class="pinyin" contenteditable="true">qí fèng xiān rén</div>
+            <div class="hanzi" contenteditable="true">骑凤仙人</div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+        <div class="interactive pagination" style="bottom: 50px; left: 50%; transform: translateX(-50%);"
+            data-scale="1">
+            <div class="dot"></div>
+            <div class="dot active"></div>
+            <div class="dot"></div>
+            <div class="resize-handle"></div>
+            <div class="delete-btn">×</div>
+        </div>
+
+    </div>
+
+    <script>
+        // ================= Logic Engine =================
+
+        const app = document.getElementById('app');
+        const historyStack = [];
+        let currentStep = -1;
+        let isDragging = false;
+        let isResizing = false;
+        let currentEl = null;
+        let startX, startY, initialLeft, initialTop, initialScale;
+
+        // Auto-scale to fit window
+        function fitWindow() {
+            const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+            app.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', fitWindow);
+        fitWindow();
+
+        // Save History Snapshot
+        function saveState() {
+            const snapshot = app.innerHTML;
+            if (currentStep < historyStack.length - 1) {
+                historyStack.splice(currentStep + 1);
+            }
+            historyStack.push(snapshot);
+            currentStep++;
+            if (historyStack.length > 20) {
+                historyStack.shift();
+                currentStep--;
+            }
+        }
+
+        // Initialize first state
+        saveState();
+
+        // Undo Logic
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                e.preventDefault();
+                if (currentStep > 0) {
+                    currentStep--;
+                    app.innerHTML = historyStack[currentStep];
+                    deselectAll();
+                }
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const selected = document.querySelector('.selected');
+                const activeElement = document.activeElement;
+                const isEditing = activeElement.isContentEditable;
+                if (selected && !isEditing) {
+                    selected.remove();
+                    saveState();
+                }
+            }
+        });
+
+        // Event Delegation
+        app.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                const parent = e.target.closest('.interactive');
+                if (parent) parent.remove();
+                saveState();
+                return;
+            }
+
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                currentEl = e.target.closest('.interactive');
+                startX = e.clientX;
+                initialScale = parseFloat(currentEl.getAttribute('data-scale')) || 1;
+                e.stopPropagation();
+                return;
+            }
+
+            const target = e.target.closest('.interactive');
+            if (target) {
+                deselectAll();
+                target.classList.add('selected');
+                if (e.target.isContentEditable) return;
+
+                isDragging = true;
+                currentEl = target;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = currentEl.offsetLeft;
+                initialTop = currentEl.offsetTop;
+            } else {
+                deselectAll();
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const appScale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+
+            if (isDragging && currentEl) {
+                const dx = (e.clientX - startX) / appScale;
+                const dy = (e.clientY - startY) / appScale;
+                currentEl.style.left = `${initialLeft + dx}px`;
+                currentEl.style.top = `${initialTop + dy}px`;
+            } else if (isResizing && currentEl) {
+                const dx = (e.clientX - startX) / appScale;
+                const newScale = Math.max(0.1, initialScale + (dx * 0.005));
+                currentEl.style.transform = `scale(${newScale})`;
+                currentEl.setAttribute('data-scale', newScale);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging || isResizing) {
+                saveState();
+            }
+            isDragging = false;
+            isResizing = false;
+            currentEl = null;
+        });
+
+        app.addEventListener('focusout', (e) => {
+            if (e.target.isContentEditable) {
+                saveState();
+            }
+        });
+
+        function deselectAll() {
+            document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+        }
+
+    </script>
+</body>
+
+</html>
