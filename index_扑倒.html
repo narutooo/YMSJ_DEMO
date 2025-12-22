@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>山海经：九尾狐收服交互</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; background: #000; color: white; overflow: hidden; font-family: sans-serif; }
+        #app-container {
+            width: 1000px; height: 562.5px;
+            position: relative; margin: auto;
+            top: 50vh; transform: translateY(-50%);
+            background: url('https://static0.xesimg.com/story-buddy/AiTool/20251221/80268290-5dc5-48bd-8468-ea6e943cd848.jpeg') center/cover;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8); overflow: hidden;
+        }
+        .panel-glass {
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(15px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+        }
+        #fox-entity {
+            transition: transform 0.1s ease-out;
+            filter: drop-shadow(0 0 15px rgba(255,100,100,0.6));
+        }
+        canvas#video-overlay { position: absolute; top: 0; left: 0; opacity: 0.3; pointer-events: none; }
+        .hidden-video { position: absolute; width: 1px; height: 1px; opacity: 0; }
+        .flash-effect {
+            position: absolute; inset: 0; background: white; z-index: 100;
+            pointer-events: none; opacity: 0; transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container" onclick="handleScreenClick()">
+    <video class="hidden-video" playsinline></video>
+    <canvas id="video-overlay" width="1000" height="562.5"></canvas>
+    
+    <div id="fox-area" class="absolute left-0 top-0 w-[600px] h-full flex items-center justify-center">
+        <div id="fox-entity" class="relative">
+            <img id="fox-gif" src="https://static0.xesimg.com/story-buddy/gif/rySfol8AgrT1Hj2qQ_-IQ/87258ba17449077aa75f9c3ccae657b2.gif" class="w-[450px]">
+            <div id="intro-text" class="absolute bottom-[-10px] left-1/2 -translate-x-1/2 bg-black/60 p-3 border border-white/20 text-xs tracking-widest leading-loose w-[300px]">
+                青丘之山其阳多玉其阴多青...九尾其音如婴儿能食人食者不蛊
+            </div>
+        </div>
+    </div>
+
+    <div id="side-panel" class="absolute right-[-400px] top-0 w-[400px] h-full panel-glass p-10 transition-all duration-700">
+        <div class="w-24 h-24 rounded-full border-2 border-white/20 bg-white/5 mx-auto mb-10 overflow-hidden flex items-center justify-center">
+            <img id="inventory-avatar" src="https://static0.xesimg.com/story-buddy/AiTool/20251221/d632f21a-8d7e-4f98-8186-acef907b29c1.png" class="w-full h-full object-cover hidden">
+            <span id="no-data-hint" class="text-white/20 text-[10px]">NO DATA</span>
+        </div>
+
+        <div id="info-list" class="space-y-6">
+            <div class="info-item opacity-0 transition-opacity duration-500">
+                <div class="text-white/40 text-[10px] border-b border-white/10 mb-1">地址</div>
+                <div class="text-white">青丘之山</div>
+            </div>
+            <div class="info-item opacity-0 transition-opacity duration-500">
+                <div class="text-white/40 text-[10px] border-b border-white/10 mb-1">外貌</div>
+                <div class="text-white">其状如狐而九尾</div>
+            </div>
+            <div class="info-item opacity-0 transition-opacity duration-500">
+                <div class="text-white/40 text-[10px] border-b border-white/10 mb-1">声音</div>
+                <div class="text-white">其音如婴儿</div>
+            </div>
+            <div class="info-item opacity-0 transition-opacity duration-500">
+                <div class="text-white/40 text-[10px] border-b border-white/10 mb-1">特点</div>
+                <div class="text-white">能食人，食者不蛊</div>
+            </div>
+        </div>
+
+        <div id="inventory-slot" class="absolute bottom-10 left-10 flex gap-4">
+            <div class="w-14 h-14 border border-white/10 bg-white/5 rounded flex items-center justify-center">
+                <img id="captured-fox" src="https://static0.xesimg.com/story-buddy/AiTool/20251221/d632f21a-8d7e-4f98-8186-acef907b29c1.png" class="w-10 hidden">
+            </div>
+        </div>
+    </div>
+
+    <div id="gesture-hint" class="absolute top-10 left-10 text-[10px] tracking-[0.4em] text-white/40">
+        CLICK SCREEN TO START (0/5)
+    </div>
+    
+    <div id="flash" class="flash-effect"></div>
+</div>
+
+<script>
+    let step = 0;
+    let isCaptured = false;
+    let cameraStarted = false;
+    const fox = document.getElementById('fox-entity');
+    const panel = document.getElementById('side-panel');
+    const infoItems = document.querySelectorAll('.info-item');
+    const hint = document.getElementById('gesture-hint');
+
+    // 屏幕点击逻辑
+    function handleScreenClick() {
+        if (isCaptured) return;
+        step++;
+        
+        if (step === 1) {
+            panel.style.right = '0';
+            fox.style.transform = 'translateX(-80px) scale(0.8)';
+            document.getElementById('intro-text').classList.add('hidden');
+        } else if (step >= 2 && step <= 5) {
+            infoItems[step - 2].style.opacity = '1';
+        }
+
+        hint.innerText = step < 5 ? `CLICK TO REVEAL DATA (${step}/5)` : `GESTURE MODE: GRAB THE FOX`;
+
+        if (step === 5) {
+            startCamera();
+        }
+    }
+
+    // MediaPipe 手势识别
+    function startCamera() {
+        if(cameraStarted) return;
+        cameraStarted = true;
+        const videoElement = document.querySelector('.hidden-video');
+        const canvasElement = document.getElementById('video-overlay');
+        const canvasCtx = canvasElement.getContext('2d');
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults((results) => {
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const indexFinger = landmarks[8]; // 食指尖
+                const thumb = landmarks[4];      // 拇指尖
+                
+                const x = (1 - indexFinger.x) * 1000;
+                const y = indexFinger.y * 562.5;
+
+                // 计算食指和拇指距离，判断是否为“抓取/捏合”
+                const distance = Math.sqrt(Math.pow(indexFinger.x - thumb.x, 2) + Math.pow(indexFinger.y - thumb.y, 2));
+                const isPinching = distance < 0.05;
+
+                if (isPinching && !isCaptured) {
+                    fox.style.transition = 'none';
+                    fox.style.left = (x - 300) + 'px'; // 偏移中心
+                    fox.style.top = (y - 280) + 'px';
+                    fox.style.transform = 'scale(0.5)';
+
+                    // 检测是否进入背包区
+                    if (x > 700) {
+                        captureFox();
+                    }
+                }
+            }
+        });
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 1000,
+            height: 562.5
+        });
+        camera.start();
+    }
+
+    function captureFox() {
+        isCaptured = true;
+        const flash = document.getElementById('flash');
+        flash.style.opacity = '1';
+        
+        setTimeout(() => {
+            fox.style.display = 'none';
+            document.getElementById('inventory-avatar').classList.remove('hidden');
+            document.getElementById('no-data-hint').classList.add('hidden');
+            document.getElementById('captured-fox').classList.remove('hidden');
+            flash.style.opacity = '0';
+            hint.innerText = "MISSION ACCOMPLISHED";
+        }, 500);
+    }
+</script>
+
+</body>
+</html>
